@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Housing Dashboard — Palette & Motion Explorations</title>
+<style>
+  :root{
+    --font-d:"Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --font-u:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#e9e6df;color:#1a1816;font-family:var(--font-u);font-size:14px;padding:32px 24px 80px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto}
+  .page-h{margin-bottom:8px}
+  .page-h h1{font-family:var(--font-d);font-size:34px;font-weight:400;letter-spacing:-.5px}
+  .page-h p{color:#6a655d;font-size:13px;margin-top:4px;max-width:680px}
+  .lead{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#8a857c;margin:44px 0 16px;border-top:1px solid rgba(0,0,0,.12);padding-top:14px}
+
+  /* ── Palette grid ── */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
+  .pcard{border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,.08);box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .pcard-h{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,0,0,.06)}
+  .pcard-h b{font-family:var(--font-d);font-size:16px;font-weight:400}
+  .pcard-h span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.6}
+  .sw{display:flex;gap:0;height:26px}
+  .sw i{flex:1;display:block}
+
+  /* ── Mini dashboard (themed via scoped vars) ── */
+  .mini{padding:16px 16px 18px;background:var(--c-canvas);color:var(--c-ink)}
+  .mini-title{font-family:var(--font-d);font-size:17px;font-weight:400;line-height:1;margin-bottom:2px}
+  .mini-sub{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--c-accent);margin-bottom:12px}
+  .mini-stats{display:flex;gap:7px;margin-bottom:12px}
+  .mini-stat{flex:1;background:var(--c-card);border:1px solid var(--c-line);border-top:3px solid var(--st);border-radius:6px;padding:8px 9px}
+  .mini-stat .n{font-family:var(--font-d);font-size:20px;line-height:1;color:var(--st)}
+  .mini-stat .l{font-size:7.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--c-muted);margin-top:4px}
+  .mini-filters{display:flex;gap:5px;margin-bottom:11px}
+  .mini-fb{font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;border-radius:100px;border:1px solid var(--c-line);color:var(--c-muted)}
+  .mini-fb.on{background:var(--c-ink);color:var(--c-card);border-color:var(--c-ink)}
+  .mini-fb.rev{border-color:var(--c-accent);color:var(--c-accent);background:var(--c-accent-soft)}
+  .mini-tbl{background:var(--c-card);border:1px solid var(--c-line);border-radius:8px;overflow:hidden}
+  .mini-row{display:flex;align-items:center;gap:8px;padding:8px 11px;border-bottom:1px solid var(--c-line-soft);font-size:12px}
+  .mini-row:last-child{border-bottom:none}
+  .mini-row.new{background:var(--c-accent-soft)}
+  .mini-row .nm{flex:1;font-weight:500}
+  .mini-row .pr{font-family:var(--font-d);font-size:13px}
+  .mini-row.gone{opacity:.4}
+  .mini-row.gone .nm{text-decoration:line-through}
+  .badge{font-size:7.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:2px 6px;border-radius:100px}
+  .b-new{background:var(--c-accent);color:#fff}
+  .b-gone{background:var(--c-stone,#2b2b2b);color:#fff}
+  .pill{font-size:8.5px;padding:3px 9px;border-radius:100px;border:1px solid var(--c-line)}
+  .pill.star{color:var(--c-accent);border-color:var(--c-accent);background:var(--c-accent-soft)}
+  .pill.sage{color:var(--c-sage-ink,#3a5c35);border-color:var(--c-sage);background:var(--c-sage-bg)}
+
+  /* ── Motion section ── */
+  .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+  .demo{background:#fbf9f5;border:1px solid rgba(0,0,0,.09);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .demo h3{font-family:var(--font-d);font-size:16px;font-weight:400;margin-bottom:3px}
+  .demo p{font-size:12px;color:#6a655d;margin-bottom:12px;min-height:34px}
+  .stage{background:#f3efe8;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:12px;min-height:120px;display:flex;flex-direction:column;justify-content:center;gap:6px;position:relative;overflow:hidden}
+  .btn{margin-top:11px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:6px 13px;border-radius:100px;border:1px solid #1a1816;background:#1a1816;color:#fbf9f5;cursor:pointer;transition:opacity .15s}
+  .btn:hover{opacity:.7}
+
+  .drow{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:6px;padding:8px 11px;font-size:12px}
+  .drow .nm{flex:1;font-weight:500}
+  .drow .pr{font-family:var(--font-d)}
+
+  /* enter stagger */
+  .enter .drow{opacity:0;transform:translateY(10px)}
+  .enter.play .drow{animation:rise .5s cubic-bezier(.2,.7,.3,1) forwards}
+  .enter.play .drow:nth-child(1){animation-delay:.04s}
+  .enter.play .drow:nth-child(2){animation-delay:.12s}
+  .enter.play .drow:nth-child(3){animation-delay:.20s}
+  .enter.play .drow:nth-child(4){animation-delay:.28s}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  /* skeleton shimmer */
+  .skel{height:34px;border-radius:6px;background:linear-gradient(100deg,#eee 30%,#f7f7f7 50%,#eee 70%);background-size:200% 100%;animation:sh 1.2s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+
+  /* count up */
+  .bign{font-family:var(--font-d);font-size:40px;line-height:1;color:#c0451d}
+
+  /* hover lift */
+  .lift{background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:8px;padding:14px;font-size:12px;transition:transform .18s ease,box-shadow .18s ease;cursor:pointer}
+  .lift:hover{transform:translateY(-3px);box-shadow:0 10px 20px -6px rgba(0,0,0,.18),0 3px 6px -3px rgba(0,0,0,.12)}
+
+  /* filter slide */
+  .fset{position:relative;display:flex;gap:0;background:#ece6dc;border-radius:100px;padding:3px;width:max-content}
+  .fset button{position:relative;z-index:2;border:none;background:none;font-size:10px;text-transform:uppercase;letter-spacing:.07em;padding:6px 14px;cursor:pointer;color:#6a655d;transition:color .25s}
+  .fset button.on{color:#fff}
+  .fslide{position:absolute;z-index:1;top:3px;left:3px;height:calc(100% - 6px);background:#1a1816;border-radius:100px;transition:transform .32s cubic-bezier(.4,.8,.3,1),width .32s cubic-bezier(.4,.8,.3,1)}
+
+  /* pulse badge */
+  .pulse{display:inline-block;background:#ff5113;color:#fff;font-size:8.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:3px 8px;border-radius:100px;animation:pulse 1.8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,81,19,.45)}50%{box-shadow:0 0 0 6px rgba(255,81,19,0)}}
+
+  /* status flash */
+  .flashrow{background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:6px;padding:9px 11px;font-size:12px;display:flex;align-items:center;gap:8px;transition:background .5s}
+  .flashrow.f{background:rgba(255,81,19,.12)}
+  select.mini-sel{font-size:11px;padding:3px 7px;border-radius:5px;border:1px solid rgba(0,0,0,.15);background:#fff}
+
+  .note{font-size:11px;color:#8a857c;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-h">
+    <h1>Palette &amp; Motion Explorations</h1>
+    <p>Six light-warm palette directions, each rendered on a miniature clone of the housing dashboard, followed by live motion / aesthetic ideas. Nothing here is wired into the real tracker — it's a visual menu to pick from.</p>
+  </div>
+
+  <div class="lead">1 — Light-warm palette proposals</div>
+  <div class="pgrid" id="pgrid"></div>
+
+  <div class="lead">2 — Motion, transitions &amp; aesthetic ideas (live)</div>
+  <div class="mgrid" id="mgrid"></div>
+</div>
+
+<script>
+/* ── Palette definitions ───────────────────────────────────────── */
+const palettes = [
+  { name:"Linen & Rust", tag:"refined current",
+    canvas:"#f4ede1", panel:"#efe7d8", card:"#fffdf8", ink:"#151415", muted:"#7b5136",
+    accent:"#ff5113", accentSoft:"#ffd9c9", line:"rgba(21,20,21,.12)", lineSoft:"rgba(21,20,21,.06)",
+    sage:"#9faf9b", sageBg:"rgba(159,175,155,.2)", sageInk:"#3a5c35", stone:"#242324",
+    stats:["#ff5113","#7b5136","#242324","#c0390a"] },
+
+  { name:"Apricot Marble", tag:"steep-inspired",
+    canvas:"#faf8f5", panel:"#f1efe9", card:"#ffffff", ink:"#1b1a18", muted:"#6f6a62",
+    accent:"#c0451d", accentSoft:"#fbe1d1", line:"rgba(0,0,0,.09)", lineSoft:"rgba(0,0,0,.05)",
+    sage:"#a9b6c9", sageBg:"#dce8f0", sageInk:"#3a5066", stone:"#17191c",
+    stats:["#c0451d","#9a7b54","#17191c","#a33012"] },
+
+  { name:"Sandstone Clay", tag:"earthy",
+    canvas:"#f1e8d9", panel:"#e9ddc9", card:"#fbf6ec", ink:"#2b2420", muted:"#8a7d6b",
+    accent:"#c2410c", accentSoft:"#f3d9bf", line:"rgba(43,36,32,.12)", lineSoft:"rgba(43,36,32,.06)",
+    sage:"#7c7f5a", sageBg:"#cdd6c2", sageInk:"#454a2c", stone:"#2b2420",
+    stats:["#c2410c","#8a7d6b","#2b2420","#9c3408"] },
+
+  { name:"Parchment Ink", tag:"editorial broadsheet",
+    canvas:"#f5f0e6", panel:"#ece5d6", card:"#fcf9f1", ink:"#1c1a16", muted:"#7a7263",
+    accent:"#a83a1a", accentSoft:"#ecd7c3", line:"rgba(28,26,22,.10)", lineSoft:"rgba(28,26,22,.05)",
+    sage:"#b08968", sageBg:"#e8dcce", sageInk:"#6b4f37", stone:"#1c1a16",
+    stats:["#a83a1a","#b08968","#1c1a16","#8a2d12"] },
+
+  { name:"Greige Gallery", tag:"structured-inspired",
+    canvas:"#ebebe8", panel:"#e3e2dc", card:"#f6f5f1", ink:"#111111", muted:"#595855",
+    accent:"#b4502a", accentSoft:"#e0d2c4", line:"rgba(0,0,0,.11)", lineSoft:"rgba(0,0,0,.05)",
+    sage:"#9a9a8c", sageBg:"#d4d4c8", sageInk:"#4a4a3c", stone:"#111111",
+    stats:["#b4502a","#8a857a","#111111","#8f3c1c"] },
+
+  { name:"Peach Dawn", tag:"light & airy",
+    canvas:"#fdf8f3", panel:"#f7ece3", card:"#ffffff", ink:"#211a16", muted:"#8a6f5e",
+    accent:"#ff6b4a", accentSoft:"#ffe0d3", line:"rgba(33,26,22,.09)", lineSoft:"rgba(33,26,22,.045)",
+    sage:"#9fc0bf", sageBg:"#e3efed", sageInk:"#37605c", stone:"#211a16",
+    stats:["#ff6b4a","#c79a6a","#211a16","#d2502f"] },
+];
+
+function miniBoard(p){
+  const v = `
+    --c-canvas:${p.canvas};--c-panel:${p.panel};--c-card:${p.card};--c-ink:${p.ink};
+    --c-muted:${p.muted};--c-accent:${p.accent};--c-accent-soft:${p.accentSoft};
+    --c-line:${p.line};--c-line-soft:${p.lineSoft};--c-sage:${p.sage};--c-sage-bg:${p.sageBg};
+    --c-sage-ink:${p.sageInk};--c-stone:${p.stone};`;
+  const st = p.stats;
+  return `<div class="mini" style="${v}">
+    <div class="mini-title">Amsterdam Housing</div>
+    <div class="mini-sub">3 sources · daily 10:00</div>
+    <div class="mini-stats">
+      <div class="mini-stat" style="--st:${st[0]}"><div class="n">3</div><div class="l">New</div></div>
+      <div class="mini-stat" style="--st:${st[1]}"><div class="n">12</div><div class="l">Active</div></div>
+      <div class="mini-stat" style="--st:${st[2]}"><div class="n">5</div><div class="l">Sent</div></div>
+      <div class="mini-stat" style="--st:${st[3]}"><div class="n">8</div><div class="l">Expired</div></div>
+    </div>
+    <div class="mini-filters">
+      <div class="mini-fb on">All</div>
+      <div class="mini-fb rev">To review</div>
+      <div class="mini-fb">New</div>
+    </div>
+    <div class="mini-tbl">
+      <div class="mini-row new"><span class="nm">Kanaalstraat 3 <span class="badge b-new">New</span></span><span class="pr">€2,675</span><span class="pill star">Starred</span></div>
+      <div class="mini-row"><span class="nm">Driedistelstraat</span><span class="pr">€2,750</span><span class="pill sage">Sent</span></div>
+      <div class="mini-row"><span class="nm">Plantage Doklaan</span><span class="pr">€3,100</span><span class="pill">—</span></div>
+      <div class="mini-row gone"><span class="nm">Rokin <span class="badge b-gone">Gone</span></span><span class="pr">€2,650</span><span class="pill">Pass</span></div>
+    </div>
+  </div>`;
+}
+
+function swatches(p){
+  const cols = [p.canvas,p.card,p.ink,p.accent,p.accentSoft,p.sage,p.muted];
+  return `<div class="sw">${cols.map(c=>`<i style="background:${c}"></i>`).join('')}</div>`;
+}
+
+document.getElementById('pgrid').innerHTML = palettes.map(p=>`
+  <div class="pcard">
+    <div class="pcard-h"><b>${p.name}</b><span>${p.tag}</span></div>
+    ${swatches(p)}
+    ${miniBoard(p)}
+  </div>`).join('');
+
+/* ── Motion demos ──────────────────────────────────────────────── */
+const mgrid = document.getElementById('mgrid');
+
+const demos = [
+  {title:"Staggered enter", desc:"Rows rise + fade in sequence on load — gives the table a calm, deliberate arrival instead of a hard pop.",
+   stage:`<div class="stage"><div class="enter" id="enterStage">
+     <div class="drow"><span class="nm">Kanaalstraat 3</span><span class="pr">€2,675</span></div>
+     <div class="drow"><span class="nm">Driedistelstraat</span><span class="pr">€2,750</span></div>
+     <div class="drow"><span class="nm">Plantage Doklaan</span><span class="pr">€3,100</span></div>
+     <div class="drow"><span class="nm">Van Spilbergenstraat</span><span class="pr">€2,800</span></div>
+   </div></div>`, btn:"Replay", fn:"replayEnter"},
+
+  {title:"Skeleton loading", desc:"Shimmer placeholders while a source is being re-checked, so the layout never jumps when data lands.",
+   stage:`<div class="stage" id="skelStage"></div>`, btn:"Toggle loading", fn:"toggleSkel"},
+
+  {title:"Stat count-up", desc:"Headline numbers animate from 0 to value on load — small touch that makes the stat cards feel live.",
+   stage:`<div class="stage" style="align-items:center;text-align:center"><div class="bign" id="cnum">0</div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#8a857c;margin-top:6px">Active listings</div></div>`,
+   btn:"Replay", fn:"replayCount"},
+
+  {title:"Hover lift", desc:"Cards/rows lift with a soft shadow on hover (Steep's three-layer shadow language). Hover the card below.",
+   stage:`<div class="stage"><div class="lift">Libau-Eiland<br><span style="color:#8a857c">€3,500 · Houthavens</span></div></div>`, btn:null},
+
+  {title:"Filter slide indicator", desc:"Active-filter pill glides between options instead of snapping — orients the eye during triage.",
+   stage:`<div class="stage" style="align-items:center"><div class="fset" id="fset">
+     <div class="fslide" id="fslide"></div>
+     <button class="on">All</button><button>To review</button><button>New</button><button>Sent</button>
+   </div></div>`, btn:null},
+
+  {title:"New-listing pulse", desc:"A soft expanding ring on the New badge draws the eye to fresh listings without being loud.",
+   stage:`<div class="stage" style="align-items:center"><span class="pulse">New today</span></div>`, btn:null},
+
+  {title:"Status-change flash", desc:"Changing a status flashes the row in the accent tint then settles — confirms the action landed. (Already in the live app; refined here.)",
+   stage:`<div class="stage"><div class="flashrow" id="flashRow"><span class="nm" style="flex:1;font-weight:500">Archimedesplantsoen</span>
+     <select class="mini-sel" id="flashSel"><option>—</option><option>Starred</option><option>Queued</option><option>Sent</option></select></div></div>`, btn:null},
+
+  {title:"Section reveal on scroll", desc:"Each provider section fades up as it enters the viewport — turns a long scroll into a sequence of moments.",
+   stage:`<div class="stage" style="align-items:center;color:#8a857c;font-style:italic;font-family:var(--font-d)">Scroll-triggered fade-up<br>(applies to the 3 source sections)</div>`, btn:null},
+];
+
+mgrid.innerHTML = demos.map(d=>`
+  <div class="demo">
+    <h3>${d.title}</h3>
+    <p>${d.desc}</p>
+    ${d.stage}
+    ${d.btn?`<button class="btn" onclick="${d.fn}()">${d.btn}</button>`:''}
+  </div>`).join('');
+
+/* demo behaviours */
+function replayEnter(){const s=document.getElementById('enterStage');s.classList.remove('play');void s.offsetWidth;s.classList.add('play');}
+setTimeout(replayEnter,300);
+
+let skelOn=false;
+const skelRows=`${'<div class="skel"></div>'.repeat(3)}`;
+const dataRows=`
+  <div class="drow"><span class="nm">Kanaalstraat 3</span><span class="pr">€2,675</span></div>
+  <div class="drow"><span class="nm">Driedistelstraat</span><span class="pr">€2,750</span></div>
+  <div class="drow"><span class="nm">Plantage Doklaan</span><span class="pr">€3,100</span></div>`;
+function toggleSkel(){skelOn=!skelOn;document.getElementById('skelStage').innerHTML=skelOn?skelRows:dataRows;}
+document.getElementById('skelStage').innerHTML=dataRows;
+
+function replayCount(){
+  const el=document.getElementById('cnum');let v=0;const target=12;
+  clearInterval(el._t);el._t=setInterval(()=>{v++;el.textContent=v;if(v>=target)clearInterval(el._t);},45);
+}
+setTimeout(replayCount,400);
+
+/* filter slide */
+(function(){
+  const set=document.getElementById('fset'),slide=document.getElementById('fslide');
+  const btns=[...set.querySelectorAll('button')];
+  function move(b){slide.style.width=b.offsetWidth+'px';slide.style.transform=`translateX(${b.offsetLeft-3}px)`;}
+  btns.forEach(b=>b.addEventListener('click',()=>{btns.forEach(x=>x.classList.remove('on'));b.classList.add('on');move(b);}));
+  requestAnimationFrame(()=>move(set.querySelector('.on')));
+})();
+
+/* status flash */
+document.getElementById('flashSel').addEventListener('change',()=>{
+  const r=document.getElementById('flashRow');r.classList.add('f');setTimeout(()=>r.classList.remove('f'),550);
+});
+</script>
+</body>
+</html>

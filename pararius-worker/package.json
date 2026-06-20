@@ -1,0 +1,15 @@
+{
+  "name": "pararius-apply-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --remote",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "^0.0.35"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

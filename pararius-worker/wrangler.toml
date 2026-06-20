@@ -1,0 +1,11 @@
+name = "pararius-apply"
+main = "src/index.js"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Browser Rendering binding — requires Workers Paid ($5/mo)
+[browser]
+binding = "MYBROWSER"
+
+# WORKER_SECRET is set via: wrangler secret put WORKER_SECRET
+# Do NOT put the secret value here.

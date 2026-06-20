@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amsterdam Housing Tracker</title>
+<style>
+/* ── Obsidian Assembly design tokens ────────────────────── */
+:root {
+  color-scheme: light;
+  --c-black:  #2b2420;
+  --c-cream:  #f1e8d9;
+  --c-red:    #c2410c;
+  --c-brown:  #8a7d6b;
+  --c-grey:   #5c5349;
+  --c-stone:  #2b2420;
+  --c-sage:   #7c7f5a;
+  --c-white:  #fbf6ec;
+  --c-accent-soft: #f3d9bf;
+  --c-panel: #e9ddc9;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px; --sp-8:64px;
+  --c-border: rgba(43,36,32,0.10);
+  --c-border-soft: rgba(43,36,32,0.05);
+  --font-d: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-u: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --r: 0.55rem;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--c-cream); color: var(--c-black); font-family: var(--font-u); font-size: 14px; padding: 0 28px 48px; }
+
+/* ── Page header ─────────────────────────────────────────── */
+.ph { margin-bottom: var(--sp-6); padding-bottom: 0; border-bottom: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ph-left h1 { font-family: var(--font-d); font-size: 36px; font-weight: 400; letter-spacing: -0.5px; line-height: 1.05; margin-bottom: var(--sp-3); }
+.ph-left p  { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--c-red); }
+.ph-left a  { color: var(--c-red); text-decoration: none; border-bottom: 1px solid rgba(194,65,12,0.45); padding-bottom: 1px; cursor: pointer; transition: opacity 0.15s; }
+.ph-left a:hover { opacity: 0.6; }
+
+/* ── Section ─────────────────────────────────────────────── */
+.sec { margin-bottom: var(--sp-6); }
+.sec-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+.sec-title { font-family: var(--font-d); font-size: 24px; font-weight: 400; line-height: 1; }
+.sec-badge { font-family: var(--font-u); font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; padding: 3px 9px; border-radius: 100px; border: 1px solid var(--c-border); color: var(--c-grey); background: rgba(43,36,32,0.04); }
+.sec-badge-h { border-color: rgba(138,125,107,0.25); color: var(--c-brown); background: rgba(138,125,107,0.07); }
+.sec-badge-p { border-color: rgba(92,83,73,0.3); color: var(--c-grey); background: rgba(92,83,73,0.06); }
+.sec-lc { margin-left: auto; font-size: 11px; color: var(--c-sage); display: flex; align-items: center; gap: var(--sp-1); }
+.sec-lc::before { content:''; display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--c-sage); }
+
+/* ── Stats row ───────────────────────────────────────────── */
+.stats { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-5); }
+.stat {
+  background: var(--c-white);
+  border: 1px solid rgba(43,36,32,0.16);
+  border-top-width: 3px;
+  border-radius: var(--r);
+  padding: var(--sp-4) var(--sp-5);
+  min-width: 152px;
+  box-shadow: 0 1px 4px rgba(43,36,32,0.06);
+}
+.stat-n { font-family: var(--font-d); font-size: 30px; font-weight: 400; line-height: 1; color: var(--c-black); }
+.stat-l { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--c-sage); margin-top: 5px; }
+/* Coloured top-border accent per category */
+.s-new     { border-top-color: var(--c-red); }
+.s-new .stat-n { color: var(--c-red); }
+.s-applied { border-top-color: var(--c-stone); }
+.s-applied .stat-n { color: var(--c-stone); }
+.s-pending { border-top-color: var(--c-brown); }
+.s-pending .stat-n { color: var(--c-brown); }
+.s-expired { border-top-color: #9c3408; }
+.s-expired .stat-n { color: #9c3408; }
+
+/* ── Alert banner ────────────────────────────────────────── */
+.alert { display: none; background: rgba(194,65,12,0.08); border: 1px solid rgba(194,65,12,0.3); border-radius: var(--r); padding: var(--sp-2) var(--sp-4); margin-bottom: var(--sp-4); font-size: 12px; color: #9c3408; }
+.alert.on { display: block; }
+.alert-sep { margin: 0 6px; opacity: 0.5; }
+.alert-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #9c3408; opacity: 0.6; vertical-align: middle; margin-right: 5px; }
+
+/* ── Filter bar ──────────────────────────────────────────── */
+.filters { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.fb { padding: 6px 16px; border-radius: 100px; border: 1px solid var(--c-border); background: transparent; font-family: var(--font-u); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--c-grey); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.fb:hover { border-color: rgba(43,36,32,0.35); color: var(--c-black); }
+.fb.on { background: var(--c-black); color: var(--c-white); border-color: var(--c-black); }
+
+/* ── Table ───────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-white); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 560px; }
+th { padding: 9px 14px; text-align: left; font-family: var(--font-u); font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--c-black); background: var(--c-panel); border-bottom: 1px solid var(--c-border); white-space: nowrap; font-weight: 400; }
+td { padding: 10px 14px; border-bottom: 1px solid var(--c-border-soft); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr.r-new { background: var(--c-accent-soft); }
+tr.r-new:hover { background: #eecdac; }
+tr:not(.r-new):hover { background: rgba(43,36,32,0.02); }
+tr.r-gone td { opacity: 0.35; text-decoration: line-through; }
+
+.col-name { font-weight: 500; color: var(--c-black); }
+.col-name a { color: var(--c-brown); text-decoration: none; border-bottom: 1px solid rgba(138,125,107,0.4); padding-bottom: 1px; cursor: pointer; transition: opacity 0.15s; }
+.col-name a:hover { opacity: 0.65; }
+/* Student divider row */
+tr.no-student-divider td { padding: 0; border: none; }
+tr.no-student-divider td div { height: 2px; background: var(--c-red); opacity: 0.45; margin: 6px 0; }
+.col-price { font-family: var(--font-d); font-size: 15px; color: var(--c-black); white-space: nowrap; }
+.col-muted { color: var(--c-brown); font-size: 12px; }
+.col-date  { color: var(--c-sage); font-size: 11px; white-space: nowrap; }
+
+/* ── Badges ──────────────────────────────────────────────── */
+.b { display: inline-block; font-family: var(--font-u); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; padding: 2px 7px; border-radius: 100px; vertical-align: middle; margin-left: 4px; }
+.b-new  { background: var(--c-red); color: #fbf6ec; }
+.b-gone { background: var(--c-stone); color: #fbf6ec; }
+.b-yes  { background: rgba(124,127,90,0.2); color: #454a2c; border: 1px solid rgba(124,127,90,0.5); }
+.b-no   { background: rgba(194,65,12,0.1); color: #9c3408; border: 1px solid rgba(194,65,12,0.25); }
+.b-unk  { background: rgba(43,36,32,0.06); color: var(--c-sage); }
+
+/* ── Status select ───────────────────────────────────────── */
+.sel { padding: 5px 24px 5px 9px; border-radius: var(--r); border: 1px solid var(--c-border); font-family: var(--font-u); font-size: 11px; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%237c7f5a'/%3E%3C/svg%3E") no-repeat right 8px center; appearance: none; color: var(--c-grey); cursor: pointer; }
+.sel.referenced    { border-color: rgba(124,127,90,0.5); color: var(--c-sage);  background-color: rgba(124,127,90,0.06); }
+.sel.queued        { border-color: rgba(138,125,107,0.3);  color: var(--c-brown); background-color: rgba(138,125,107,0.05); }
+.sel.starred       { border-color: rgba(194,65,12,0.5);  color: var(--c-red);   background-color: rgba(194,65,12,0.06); }
+.sel.sent          { border-color: rgba(43,36,32,0.3);   color: var(--c-black); background-color: rgba(43,36,32,0.04); }
+.sel.pass          { border-color: rgba(43,36,32,0.12);  color: var(--c-sage);  background-color: transparent; }
+
+/* ── History ─────────────────────────────────────────────── */
+.hist-tog { padding: var(--sp-3) 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-top: var(--sp-4); }
+.hist-tog span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--c-sage); }
+.hist-tog:hover span { color: var(--c-brown); }
+.hist-body { display: none; padding-top: 12px; }
+.hist-body.open { display: block; }
+.hist-row { display: flex; gap: 12px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--c-border-soft); font-size: 12px; }
+.hist-row:last-child { border-bottom: none; }
+.hist-d { font-family: var(--font-d); font-size: 13px; min-width: 80px; color: var(--c-black); }
+.hist-new  { color: var(--c-red); font-size: 11px; }
+.hist-gone { color: var(--c-stone); font-size: 11px; }
+.hist-ct   { color: var(--c-sage); font-size: 11px; }
+
+/* ── Divider ─────────────────────────────────────────────── */
+.rule { border: none; margin: 0; }
+.rule-accent { border: none; border-top: 1px solid var(--c-red); margin: 0; opacity: 0.25; }
+
+.empty { padding: var(--sp-6); text-align: center; font-size: 12px; color: var(--c-sage); font-family: var(--font-d); font-style: italic; }
+
+/* ── Global combined stats ───────────────────────────────── */
+.global-stats-wrap { margin-bottom: var(--sp-6); }
+.global-stats { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+
+/* ── Sortable price column ───────────────────────────────── */
+th.th-sort { cursor: pointer; user-select: none; }
+th.th-sort:hover { color: var(--c-brown); }
+.sort-arrow { display: inline-block; margin-left: 4px; font-size: 8px; opacity: 0.5; }
+th.th-sort.sort-asc  .sort-arrow,
+th.th-sort.sort-desc .sort-arrow { opacity: 1; color: var(--c-black); }
+
+/* ════════ V2 ENHANCEMENTS ════════ */
+html{overscroll-behavior:none}
+html,body{scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:none}
+::-webkit-scrollbar{width:0;height:0;display:none}
+#v2-intro{will-change:opacity}
+
+/* Intro hero — in-flow, scrolls into the dashboard (Structured continuation) */
+#v2-intro{position:relative;width:100vw;margin-left:calc(50% - 50vw);height:100vh;min-height:560px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.v2-hero-bg{position:absolute;inset:0;
+  background:
+    linear-gradient(to bottom, rgba(241,232,217,0) 56%, #f1e8d9 100%),
+    radial-gradient(125% 92% at 50% 15%, #f2e6d2 0%, #e7d5b7 30%, #d09a66 60%, #ab6536 84%);}
+.v2-hero-bg::after{content:'';position:absolute;inset:0;
+  background:radial-gradient(150% 130% at 50% 132%, rgba(43,36,32,.40), rgba(43,36,32,0) 56%)}
+.v2-hero-grain{position:absolute;inset:0;opacity:.45;mix-blend-mode:multiply;
+  background-image:radial-gradient(rgba(43,36,32,.10) 1px,transparent 1px);background-size:3px 3px}
+.v2-hero-content{position:relative;z-index:2;text-align:center;color:#2b2420;animation:v2heroIn 1.2s cubic-bezier(.2,.7,.3,1) both}
+.v2-wordmark{position:absolute;left:0;right:0;bottom:0;z-index:1;text-align:center;white-space:nowrap;pointer-events:none;font-family:var(--font-d);font-weight:400;font-size:clamp(64px,18.5vw,420px);line-height:.8;letter-spacing:-3px;color:#2b2420;transform:translateY(8%);animation:v2wordIn 1.4s cubic-bezier(.2,.7,.3,1) both}
+@keyframes v2wordIn{from{transform:translateY(78%)}to{transform:translateY(8%)}}
+@keyframes v2heroIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.v2-hero-kicker{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:rgba(43,36,32,.6);margin-top:18px}
+.v2-hero-title{font-family:var(--font-d);font-weight:400;font-size:clamp(52px,9vw,120px);line-height:.9;letter-spacing:-2.5px;white-space:nowrap}
+.v2-hero-hint{font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:rgba(43,36,32,.5);margin-top:24px}
+.v2-hero-cue{position:absolute;bottom:30px;left:50%;font-size:26px;color:rgba(43,36,32,.55);animation:v2bob 1.8s ease-in-out infinite}
+@keyframes v2bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,7px)}}
+#v2-intro.v2-hide-cue .v2-hero-cue,#v2-intro.v2-hide-cue .v2-hero-hint{opacity:0;transition:opacity .4s}
+.v2-hero-cue{cursor:pointer}
+.v2-back-hero{display:flex;justify-content:center;align-items:center;height:30px;margin:58px 0 18px;cursor:pointer;color:var(--c-brown);font-size:18px;line-height:1;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+body.v2-docked .v2-back-hero{opacity:.45;pointer-events:auto}
+body.v2-docked .v2-back-hero:hover{opacity:.9;transform:translateY(-2px)}
+
+/* Staggered enter (triggered when a table scrolls into view) */
+tbody.v2-stagger tr{animation:v2rise .4s cubic-bezier(.2,.7,.3,1) both}
+@keyframes v2rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+tbody.v2-stagger tr:nth-child(1){animation-delay:.02s}
+tbody.v2-stagger tr:nth-child(2){animation-delay:.06s}
+tbody.v2-stagger tr:nth-child(3){animation-delay:.10s}
+tbody.v2-stagger tr:nth-child(4){animation-delay:.14s}
+tbody.v2-stagger tr:nth-child(5){animation-delay:.18s}
+tbody.v2-stagger tr:nth-child(6){animation-delay:.22s}
+tbody.v2-stagger tr:nth-child(7){animation-delay:.26s}
+tbody.v2-stagger tr:nth-child(8){animation-delay:.30s}
+tbody.v2-stagger tr:nth-child(9){animation-delay:.34s}
+tbody.v2-stagger tr:nth-child(n+10){animation-delay:.38s}
+
+/* Skeleton loading */
+.v2-skel{height:18px;border-radius:5px;
+  background:linear-gradient(100deg,rgba(43,36,32,.07) 30%,rgba(43,36,32,.13) 50%,rgba(43,36,32,.07) 70%);
+  background-size:200% 100%;animation:v2sh 1.2s linear infinite}
+@keyframes v2sh{to{background-position:-200% 0}}
+
+/* Hover lift (stat cards) */
+.stat{transition:transform .18s ease,box-shadow .18s ease}
+.stat:hover{transform:translateY(-3px);
+  box-shadow:0 12px 24px -10px rgba(43,36,32,.24),0 4px 9px -5px rgba(43,36,32,.16)}
+
+/* Filter slide indicator */
+.filters{position:relative}
+.fb{position:relative;z-index:1}
+.filters .fb.on{background:transparent;border-color:transparent;color:var(--c-white)}
+.fb-slide{position:absolute;z-index:0;top:0;left:0;height:100%;background:var(--c-black);
+  border-radius:100px;opacity:0;pointer-events:none;
+  transition:transform .32s cubic-bezier(.4,.8,.3,1),width .32s cubic-bezier(.4,.8,.3,1),opacity .2s ease}
+
+/* Status palette emphasis (Sandstone Clay — semantic, visible, left accent) */
+.sel.starred    {border-left-width:3px;border-color:rgba(194,65,12,.45);border-left-color:#c2410c;color:#c2410c;background-color:rgba(194,65,12,.13)}
+.sel.queued     {border-left-width:3px;border-color:rgba(138,125,107,.5);border-left-color:#8a7d6b;color:#5c5349;background-color:rgba(138,125,107,.16)}
+.sel.referenced {border-left-width:3px;border-color:rgba(156,52,8,.45);border-left-color:#9c3408;color:#9c3408;background-color:rgba(156,52,8,.12)}
+.sel.sent       {border-left-width:3px;border-color:rgba(124,127,90,.6);border-left-color:#7c7f5a;color:#454a2c;background-color:rgba(124,127,90,.22)}
+.sel.pass       {border-left-width:3px;border-color:rgba(43,36,32,.16);border-left-color:rgba(43,36,32,.3);color:#8a7d6b;background-color:transparent}
+</style>
+</head>
+<body>
+<!-- ═══ V2 INTRO HERO (swap .v2-hero-bg image-slot for a real asset later) ═══ -->
+<div id="v2-intro">
+  <div class="v2-hero-bg"></div>
+  <div class="v2-hero-grain"></div>
+  <div class="v2-wordmark">Amsterdam</div>
+  <div class="v2-hero-content">
+    <h1 class="v2-hero-title">Housing Tracker</h1>
+    <div class="v2-hero-kicker">Student Experience · Hausing · Pararius</div>
+  </div>
+</div>
+<div id="v2-back" class="v2-back-hero" title="Back to hero">&#8963;</div>
+
+
+<!-- ═══ EMBEDDED DATA ═══ -->
+<script id="se-data" type="application/json">{"last_checked":"2026-06-20T08:15:47","checks":[{"date":"2026-05-30","studio_ids":["2122"],"new_ids":["2122"],"gone_ids":[]},{"date":"2026-05-30","studio_ids":["2122"],"new_ids":[],"gone_ids":[]},{"date":"2026-05-31","studio_ids":["2122"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-01","studio_ids":[],"new_ids":[],"gone_ids":["2122"]},{"date":"2026-06-02","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-03","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-03","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-04","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-05","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-05","studio_ids":["2114","2162","2016","1934"],"new_ids":["2114","2162","2016","1934"],"gone_ids":[]},{"date":"2026-06-05","studio_ids":["2114","2162","2016","1934"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-06","studio_ids":["2114","2162","2016","1934"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-06","studio_ids":["2114","2162","2016","1934"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-06","studio_ids":["2114","2162","2016","1934"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-07","studio_ids":["2114","2162","2016","1934"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-07","studio_ids":["2114","2162","2016","1934"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-07","studio_ids":["2114","2162","2016","1934"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-08","studio_ids":[],"new_ids":[],"gone_ids":["2114","2162","2016","1934"]},{"date":"2026-06-08","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-08","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-10","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-10","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-10","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-11","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-11","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-12","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-12","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-12","studio_ids":["2114","1917"],"new_ids":["1917"],"gone_ids":[]},{"date":"2026-06-12","studio_ids":["2114","1917"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-13","studio_ids":["2114","1917"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-13","studio_ids":["2114","1917"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-14","studio_ids":["2114","1917"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-15","studio_ids":[],"new_ids":[],"gone_ids":["2114","1917"]},{"date":"2026-06-15","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-16","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-17","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-18","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-19","studio_ids":[],"new_ids":[],"gone_ids":[]},{"date":"2026-06-20","studio_ids":["2202"],"new_ids":["2202"],"gone_ids":[]}],"studios":{"2122":{"id":"2122","href":"https://studentexperience.com/studios/2122","name":"Amsterdam NDSM 63 G5","size":"24.5 m²","stayType":"Long stay > 1 year","furnished":"Not furnished","price":"€ 1,046*","first_seen":"2026-05-30","last_seen":"2026-05-31","available":false,"expired":true,"expired_since":"2026-06-01"},"2114":{"id":"2114","href":"https://studentexperience.com/studios/2114","name":"Amsterdam NDSM 63 P13","size":"23.2 m²","stayType":"Long stay > 1 year","furnished":"Not furnished","price":"€ 1,060*","expiry":"14 June 2026","first_seen":"2026-06-05","last_seen":"2026-06-14","available":false,"expired":true,"expired_since":"2026-06-15"},"2162":{"id":"2162","href":"https://studentexperience.com/studios/2162","name":"Amsterdam NDSM 61 K1","size":"24.5 m²","stayType":"Long stay > 1 year","furnished":"Not furnished","price":"€ 1,032*","expiry":"7 June 2026","first_seen":"2026-06-05","last_seen":"2026-06-07","available":false,"expired":true,"expired_since":"2026-06-08"},"2016":{"id":"2016","href":"https://studentexperience.com/studios/2016","name":"Amsterdam NDSM 61 D3","size":"24.5 m²","stayType":"Long stay > 1 year","furnished":"Not furnished","price":"€ 1,046*","expiry":"7 June 2026","first_seen":"2026-06-05","last_seen":"2026-06-07","available":false,"expired":true,"expired_since":"2026-06-08"},"1934":{"id":"1934","href":"https://studentexperience.com/studios/1934","name":"Amsterdam NDSM 61 P3","size":"23.2 m²","stayType":"Long stay > 1 year","furnished":"Not furnished","price":"€ 1,060*","expiry":"7 June 2026","first_seen":"2026-06-05","last_seen":"2026-06-07","available":false,"expired":true,"expired_since":"2026-06-08"},"1917":{"id":"1917","href":"https://studentexperience.com/studios/1917","name":"Amsterdam NDSM 63 D6","size":"24.5 m²","stayType":"Long stay > 1 year","furnished":"Not furnished","price":"€ 1,046*","expiry":"14 June 2026","first_seen":"2026-06-12","last_seen":"2026-06-14","available":false,"expired":true,"expired_since":"2026-06-15"},"2202":{"id":"2202","href":"https://studentexperience.com/studios/2202","name":"Amsterdam NDSM 63 N6","size":"24.5 m²","stayType":"Long stay > 1 year","furnished":"Not furnished","price":"€ 1,046*","expiry":"21 June 2026","first_seen":"2026-06-20","last_seen":"2026-06-20","available":true,"expired":false}}}</script>
+<script id="hausing-data" type="application/json">{"last_checked":"2026-06-20T08:15:47","checks":[{"date":"2026-05-30","listing_ids":["bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","singel3","krommertstraat","admiraal-de-ruijterweg-o2vwh","rokin","emmeline-pankhurststraat","werfkade","matrozenhof","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-88-a","kometensingel-88-c","kometensingel-90-a","mercatorplein-4","emmastraat"],"new_ids":["bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","singel3","krommertstraat","admiraal-de-ruijterweg-o2vwh","rokin","emmeline-pankhurststraat","werfkade","matrozenhof","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-88-a","kometensingel-88-c","kometensingel-90-a","mercatorplein-4","emmastraat"],"gone_ids":[]},{"date":"2026-05-30","listing_ids":["bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","singel3","krommertstraat","admiraal-de-ruijterweg-o2vwh","rokin","emmeline-pankhurststraat","werfkade","matrozenhof","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-88-a","kometensingel-88-c","kometensingel-90-a","mercatorplein-4","emmastraat"],"new_ids":[],"gone_ids":[]},{"date":"2026-05-31","listing_ids":["bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","singel3","krommertstraat","admiraal-de-ruijterweg-o2vwh","rokin","emmeline-pankhurststraat","werfkade","matrozenhof","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-88-a","kometensingel-88-c","kometensingel-90-a","mercatorplein-4","emmastraat"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-01","listing_ids":["bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","singel3","krommertstraat","admiraal-de-ruijterweg-o2vwh","rokin","emmeline-pankhurststraat","werfkade","matrozenhof","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-88-a","kometensingel-88-c","kometensingel-90-a","mercatorplein-4","emmastraat"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-02","listing_ids":["kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","emmeline-pankhurststraat","werfkade","matrozenhof","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-88-c","kometensingel-90-a","emmastraat"],"new_ids":["korte-leidsedwarsstraat-203-3c"],"gone_ids":["singel3","krommertstraat","admiraal-de-ruijterweg-o2vwh","mercatorplein-4"]},{"date":"2026-06-03","listing_ids":["kometensingel-88-c","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","emmeline-pankhurststraat","werfkade","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-90-a","emmastraat"],"new_ids":["nassaukade-3bk0d"],"gone_ids":["matrozenhof"]},{"date":"2026-06-03","listing_ids":["kometensingel-88-c","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","emmeline-pankhurststraat","werfkade","nieuwe-jonkerstraat","paramaribostraat","magalhaensplein-3","huiswoudstraat","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","schubertstraat2","nachtwachtlaan2","kometensingel-90-a","emmastraat"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-04","listing_ids":["kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","paramaribostraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","vespuccistraat-4xdn6","haarlemmerweg-1694","nachtwachtlaan2","kometensingel-90-a","emmastraat"],"new_ids":["hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat"],"gone_ids":["emmeline-pankhurststraat","huiswoudstraat","schubertstraat2"]},{"date":"2026-06-05","listing_ids":["haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2","kometensingel-90-a"],"new_ids":["johan-jongkindstraat-nvcc1","krommertstraat","kometensingel-88-c"],"gone_ids":["vespuccistraat-4xdn6","emmastraat","paramaribostraat"]},{"date":"2026-06-05","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":["libau-eiland","rustenburgerstraat-7"],"gone_ids":[]},{"date":"2026-06-06","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-06","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-06","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-07","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-07","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-07","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-08","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","nieuwe-jonkerstraat","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-08","listing_ids":["libau-eiland","kometensingel-90-a","rustenburgerstraat-7","haarlemmerweg-1694","johan-jongkindstraat-nvcc1","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":["nieuwe-jonkerstraat"]},{"date":"2026-06-08","listing_ids":["rustenburgerstraat-7","johan-jongkindstraat-nvcc1","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","libau-eiland","kometensingel-90-a","haarlemmerweg-1694","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","magalhaensplein-3","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":["van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat"],"gone_ids":[]},{"date":"2026-06-10","listing_ids":["singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","johan-jongkindstraat-nvcc1","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","libau-eiland","kometensingel-90-a","haarlemmerweg-1694","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":["singel-4","lange-niezel-lv32i","sint-willibrordusstraat"],"gone_ids":["magalhaensplein-3"]},{"date":"2026-06-10","listing_ids":["singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","johan-jongkindstraat-nvcc1","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","libau-eiland","kometensingel-90-a","haarlemmerweg-1694","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-10","listing_ids":["lincolnweg","libau-eiland","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","johan-jongkindstraat-nvcc1","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":["lincolnweg"],"gone_ids":[]},{"date":"2026-06-11","listing_ids":["minervalaan","lincolnweg","libau-eiland","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","johan-jongkindstraat-nvcc1","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","kometensingel-88-c","hondiusstraat-2","amstelveenseweg-vxz8w","hondiusstraat","kometensingel-88-a","nassaukade-3bk0d","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","rokin","werfkade","jan-van-duivenvoordestraat2","slangenburg","nachtwachtlaan2"],"new_ids":["minervalaan"],"gone_ids":[]},{"date":"2026-06-11","listing_ids":["plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","libau-eiland","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","hondiusstraat-2","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","werfkade","slangenburg","johan-jongkindstraat-nvcc1"],"new_ids":["plantage-doklaan"],"gone_ids":["nachtwachtlaan2","hondiusstraat","nassaukade-3bk0d","kometensingel-88-c","rokin"]},{"date":"2026-06-12","listing_ids":["van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","libau-eiland","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","hondiusstraat-2","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","werfkade","slangenburg","johan-jongkindstraat-nvcc1"],"new_ids":["van-spilbergenstraat-8"],"gone_ids":[]},{"date":"2026-06-12","listing_ids":["van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","libau-eiland","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","hondiusstraat-2","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","rustenburgerstraat-6","werfkade","slangenburg","johan-jongkindstraat-nvcc1"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-12","listing_ids":["libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","werfkade","slangenburg"],"new_ids":["rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw"],"gone_ids":["rustenburgerstraat-6","johan-jongkindstraat-nvcc1","hondiusstraat-2"]},{"date":"2026-06-12","listing_ids":["libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","werfkade","slangenburg"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-13","listing_ids":["libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","werfkade","slangenburg"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-13","listing_ids":["libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","werfkade","slangenburg"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-14","listing_ids":["libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","werfkade","slangenburg"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-15","listing_ids":["libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","amstelveenseweg-vxz8w","kometensingel-88-a","korte-leidsedwarsstraat-203-3c","bonairestraat-rghxb","hoofdweg-6mtf5","bogortuin","werfkade","slangenburg"],"new_ids":[],"gone_ids":[]},{"date":"2026-06-15","listing_ids":["hoofdweg-6mtf5","libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","lincolnweg","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","van-walbeeckstraat-vyx83","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","bonairestraat-rghxb","bogortuin","werfkade","slangenburg"],"new_ids":[],"gone_ids":["kometensingel-88-a","korte-leidsedwarsstraat-203-3c","amstelveenseweg-vxz8w"]},{"date":"2026-06-16","listing_ids":["lincolnweg","hoofdweg-6mtf5","libau-eiland","rustenburgerstraat-8","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","bonairestraat-rghxb","bogortuin","werfkade","slangenburg"],"new_ids":[],"gone_ids":["van-walbeeckstraat-vyx83"]},{"date":"2026-06-17","listing_ids":["admiralengracht-3uez7","rooseveltlaan","rustenburgerstraat-8","lincolnweg","hoofdweg-6mtf5","libau-eiland","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","plantage-doklaan","jan-van-duivenvoordestraat2","minervalaan","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","bonairestraat-rghxb","bogortuin","werfkade","slangenburg"],"new_ids":["admiralengracht-3uez7","rooseveltlaan"],"gone_ids":[]},{"date":"2026-06-18","listing_ids":["cornelis-zillesenlaan","cornelis-zillesenlaan-2","cornelis-zillesenlaan1","hoofdweg-6mtf5","admiralengracht-3uez7","rooseveltlaan","rustenburgerstraat-8","lincolnweg","libau-eiland","archimedesplantsoen-scghe","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","jan-van-duivenvoordestraat2","minervalaan","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","kanaalstraat-3","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","bonairestraat-rghxb","werfkade","slangenburg"],"new_ids":["cornelis-zillesenlaan","cornelis-zillesenlaan-2","cornelis-zillesenlaan1"],"gone_ids":["plantage-doklaan","bogortuin"]},{"date":"2026-06-19","listing_ids":["prinsengracht-f9cxu","gerard-doustraat-4","eerste-constantijn-huygenstraat","jan-van-duivenvoordestraat2","cornelis-zillesenlaan-2","cornelis-zillesenlaan","cornelis-zillesenlaan1","hoofdweg-6mtf5","admiralengracht-3uez7","rooseveltlaan","rustenburgerstraat-8","lincolnweg","libau-eiland","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","minervalaan","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","driedistelstraat","kometensingel-90-a","haarlemmerweg-1694","bonairestraat-rghxb","werfkade","slangenburg"],"new_ids":["prinsengracht-f9cxu","gerard-doustraat-4","eerste-constantijn-huygenstraat"],"gone_ids":["kanaalstraat-3","archimedesplantsoen-scghe"]},{"date":"2026-06-20","listing_ids":["kometensingel-90-a","van-spilbergenstraat-9","libau-eiland","delistraat","torresstraat-2","prinsengracht-f9cxu","gerard-doustraat-4","eerste-constantijn-huygenstraat","jan-van-duivenvoordestraat2","cornelis-zillesenlaan-2","cornelis-zillesenlaan","cornelis-zillesenlaan1","hoofdweg-6mtf5","admiralengracht-3uez7","rooseveltlaan","rustenburgerstraat-8","lincolnweg","oudezijds-voorburgwal","ceintuurbaan-vhqhw","van-spilbergenstraat-8","minervalaan","singel-4","emmeline-pankhurststraat","lange-niezel-lv32i","sint-willibrordusstraat","rustenburgerstraat-7","driedistelstraat","haarlemmerweg-1694","bonairestraat-rghxb","slangenburg"],"new_ids":["van-spilbergenstraat-9","delistraat","torresstraat-2"],"gone_ids":["werfkade"]}],"listings":{"bonairestraat-rghxb":{"id":"bonairestraat-rghxb","href":"https://hausing.com/for-rent/bonairestraat-rghxb","address":"Bonairestraat","neighborhood":"De Baarsjes","bedrooms":"2","bathrooms":"1","size":"51 sq.m.","price":"€2600","available":"01/07/2026","studentsAllowed":"no","incomeReq":"110K","first_seen":"2026-05-30","last_seen":"2026-06-20","available_listing":true,"expired":false},"hoofdweg-6mtf5":{"id":"hoofdweg-6mtf5","href":"https://hausing.com/for-rent/hoofdweg-6mtf5","address":"Hoofdweg","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"47 sq.m.","price":"€2600","available":"Immediately","studentsAllowed":"no","incomeReq":"100K","first_seen":"2026-05-30","last_seen":"2026-06-20","available_listing":true,"expired":false},"bogortuin":{"id":"bogortuin","href":"https://hausing.com/for-rent/bogortuin","address":"Bogortuin","neighborhood":"Oostelijke Eilanden","bedrooms":"1","bathrooms":"1","size":"85 sq.m.","price":"€2500","available":"Immediately","studentsAllowed":"no","incomeReq":"105K","first_seen":"2026-05-30","last_seen":"2026-06-17","available_listing":false,"expired":true,"expired_since":"2026-06-18"},"rustenburgerstraat-6":{"id":"rustenburgerstraat-6","href":"https://hausing.com/for-rent/rustenburgerstraat-6","address":"Rustenburgerstraat","neighborhood":"De Pijp","bedrooms":"2","bathrooms":"1","size":"51 sq.m.","price":"€2775","available":"Immediately","studentsAllowed":"yes","incomeReq":"116K","first_seen":"2026-05-30","last_seen":"2026-06-12","available_listing":false,"expired":true,"expired_since":"2026-06-12"},"singel3":{"id":"singel3","href":"https://hausing.com/for-rent/singel3","address":"Singel","neighborhood":"Centrum","bedrooms":"2","bathrooms":"2","size":"101 sq.m.","price":"€3825","available":"","studentsAllowed":"yes","incomeReq":"160K","first_seen":"2026-05-30","last_seen":"2026-06-01","available_listing":false,"expired":true,"expired_since":"2026-06-02"},"krommertstraat":{"id":"krommertstraat","href":"https://hausing.com/for-rent/krommertstraat","address":"Krommertstraat","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"75 sq.m.","price":"€2850","available":"","studentsAllowed":"yes","incomeReq":"113K","first_seen":"2026-06-05","last_seen":"2026-06-05","available_listing":false,"expired":true,"expired_since":"2026-06-02"},"admiraal-de-ruijterweg-o2vwh":{"id":"admiraal-de-ruijterweg-o2vwh","href":"https://hausing.com/for-rent/admiraal-de-ruijterweg-o2vwh","address":"Admiraal de Ruijterweg","neighborhood":"Bos en Lommer","bedrooms":"4","bathrooms":"3","size":"115 sq.m.","price":"€3850","available":"","studentsAllowed":"yes","incomeReq":"160K","first_seen":"2026-05-30","last_seen":"2026-06-01","available_listing":false,"expired":true,"expired_since":"2026-06-02"},"rokin":{"id":"rokin","href":"https://hausing.com/for-rent/rokin","address":"Rokin","neighborhood":"Centrum","bedrooms":"2","bathrooms":"1","size":"106 sq.m.","price":"€2650","available":"Immediately","studentsAllowed":"yes","incomeReq":"105K","first_seen":"2026-05-30","last_seen":"2026-06-11","available_listing":false,"expired":true,"expired_since":"2026-06-11"},"emmeline-pankhurststraat":{"id":"emmeline-pankhurststraat","href":"https://hausing.com/for-rent/emmeline-pankhurststraat","address":"Emmeline Pankhurststraat","neighborhood":"Zuid-Oost","bedrooms":"2","bathrooms":"1","size":"89 sq.m.","price":"€2500","available":"08/06/2026","studentsAllowed":"yes","incomeReq":"98K","first_seen":"2026-05-30","last_seen":"2026-06-20","available_listing":true,"expired":false},"werfkade":{"id":"werfkade","href":"https://hausing.com/for-rent/werfkade","address":"Werfkade","neighborhood":"Noord","bedrooms":"2","bathrooms":"1","size":"62 sq.m.","price":"€2750","available":"Immediately","studentsAllowed":"no","incomeReq":"","first_seen":"2026-05-30","last_seen":"2026-06-19","available_listing":false,"expired":true,"expired_since":"2026-06-20"},"matrozenhof":{"id":"matrozenhof","href":"https://hausing.com/for-rent/matrozenhof","address":"Matrozenhof","neighborhood":"Centrum","bedrooms":"1","bathrooms":"1","size":"61 sq.m.","price":"€2300","available":"","studentsAllowed":"no","incomeReq":"96K","first_seen":"2026-05-30","last_seen":"2026-06-02","available_listing":false,"expired":true,"expired_since":"2026-06-03"},"nieuwe-jonkerstraat":{"id":"nieuwe-jonkerstraat","href":"https://hausing.com/for-rent/nieuwe-jonkerstraat","address":"Nieuwe Jonkerstraat","neighborhood":"Nieuwmarkt","bedrooms":"3","bathrooms":"1","size":"90 sq.m.","price":"€3350","available":"Immediately","studentsAllowed":"no","incomeReq":"140K","first_seen":"2026-05-30","last_seen":"2026-06-08","available_listing":false,"expired":true,"expired_since":"2026-06-08"},"paramaribostraat":{"id":"paramaribostraat","href":"https://hausing.com/for-rent/paramaribostraat","address":"Paramaribostraat","neighborhood":"De Baarsjes","bedrooms":"3","bathrooms":"1","size":"105 sq.m.","price":"€3500","available":"01/07/2026","studentsAllowed":"no","incomeReq":"140K","first_seen":"2026-05-30","last_seen":"2026-06-04","available_listing":false,"expired":true,"expired_since":"2026-06-05"},"magalhaensplein-3":{"id":"magalhaensplein-3","href":"https://hausing.com/for-rent/magalhaensplein-3","address":"Magalhaensplein","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"61 sq.m.","price":"€2875","available":"Immediately","studentsAllowed":"yes","incomeReq":"121K","first_seen":"2026-05-30","last_seen":"2026-06-08","available_listing":false,"expired":true,"expired_since":"2026-06-10"},"huiswoudstraat":{"id":"huiswoudstraat","href":"https://hausing.com/for-rent/huiswoudstraat","address":"Huiswoudstraat","neighborhood":"IJburg","bedrooms":"4","bathrooms":"1","size":"124 sq.m.","price":"€3000","available":"","studentsAllowed":"yes","incomeReq":"120K","first_seen":"2026-05-30","last_seen":"2026-06-03","available_listing":false,"expired":true,"expired_since":"2026-06-04"},"jan-van-duivenvoordestraat2":{"id":"jan-van-duivenvoordestraat2","href":"https://hausing.com/for-rent/jan-van-duivenvoordestraat2","address":"Jan van Duivenvoordestraat","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"95 sq.m.","price":"€2495","available":"01/06/2026","studentsAllowed":"yes","incomeReq":"115K","first_seen":"2026-05-30","last_seen":"2026-06-20","available_listing":true,"expired":false},"slangenburg":{"id":"slangenburg","href":"https://hausing.com/for-rent/slangenburg","address":"Slangenburg","neighborhood":"Zuid","bedrooms":"3","bathrooms":"1","size":"120 sq.m.","price":"€3300","available":"01/05/2026","studentsAllowed":"yes","incomeReq":"138K","first_seen":"2026-05-30","last_seen":"2026-06-20","available_listing":true,"expired":false},"vespuccistraat-4xdn6":{"id":"vespuccistraat-4xdn6","href":"https://hausing.com/for-rent/vespuccistraat-4xdn6","address":"Vespuccistraat","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"59 sq.m.","price":"€2500","available":"","studentsAllowed":"yes","incomeReq":"105K","first_seen":"2026-05-30","last_seen":"2026-06-04","available_listing":false,"expired":true,"expired_since":"2026-06-05"},"haarlemmerweg-1694":{"id":"haarlemmerweg-1694","href":"https://hausing.com/for-rent/haarlemmerweg-1694","address":"Haarlemmerweg 1462","neighborhood":"Westerpark","bedrooms":"2","bathrooms":"1","size":"64 sq.m.","price":"€2560","available":"Immediately","studentsAllowed":"no","incomeReq":"95K","first_seen":"2026-05-30","last_seen":"2026-06-20","available_listing":true,"expired":false},"schubertstraat2":{"id":"schubertstraat2","href":"https://hausing.com/for-rent/schubertstraat2","address":"Schubertstraat","neighborhood":"Oud-Zuid","bedrooms":"2","bathrooms":"1","size":"68 sq.m.","price":"€2850","available":"","studentsAllowed":"yes","incomeReq":"115K","first_seen":"2026-05-30","last_seen":"2026-06-03","available_listing":false,"expired":true,"expired_since":"2026-06-04"},"nachtwachtlaan2":{"id":"nachtwachtlaan2","href":"https://hausing.com/for-rent/nachtwachtlaan2","address":"Nachtwachtlaan","neighborhood":"Nieuw-West","bedrooms":"3","bathrooms":"1","size":"103 sq.m.","price":"€2900","available":"Immediately","studentsAllowed":"yes","incomeReq":"120K","first_seen":"2026-05-30","last_seen":"2026-06-11","available_listing":false,"expired":true,"expired_since":"2026-06-11"},"kometensingel-88-a":{"id":"kometensingel-88-a","href":"https://hausing.com/for-rent/kometensingel-88-a","address":"Kometensingel 88-A","neighborhood":"Noord","bedrooms":"3","bathrooms":"1","size":"98 sq.m.","price":"€3200","available":"Immediately","studentsAllowed":"no","incomeReq":"","first_seen":"2026-05-30","last_seen":"2026-06-15","available_listing":false,"expired":true,"expired_since":"2026-06-15"},"kometensingel-88-c":{"id":"kometensingel-88-c","href":"https://hausing.com/for-rent/kometensingel-88-c","address":"Kometensingel 88-C","neighborhood":"Noord","bedrooms":"2","bathrooms":"1","size":"75 sq.m.","price":"€2450","available":"Immediately","studentsAllowed":"yes","incomeReq":"","first_seen":"2026-06-05","last_seen":"2026-06-11","available_listing":false,"expired":true,"expired_since":"2026-06-11"},"kometensingel-90-a":{"id":"kometensingel-90-a","href":"https://hausing.com/for-rent/kometensingel-90-a","address":"Kometensingel 90-A","neighborhood":"Noord","bedrooms":"4","bathrooms":"2","size":"150 sq.m.","price":"€3700","available":"Immediately","studentsAllowed":"no","incomeReq":"","first_seen":"2026-05-30","last_seen":"2026-06-20","available_listing":true,"expired":false},"mercatorplein-4":{"id":"mercatorplein-4","href":"https://hausing.com/for-rent/mercatorplein-4","address":"Mercatorplein","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"57 sq.m.","price":"€2500","available":"","studentsAllowed":"yes","incomeReq":"110K","first_seen":"2026-05-30","last_seen":"2026-06-01","available_listing":false,"expired":true,"expired_since":"2026-06-02"},"emmastraat":{"id":"emmastraat","href":"https://hausing.com/for-rent/emmastraat","address":"Emmastraat","neighborhood":"Oud-Zuid","bedrooms":"2","bathrooms":"2","size":"70 sq.m.","price":"€2650","available":"","studentsAllowed":"no","incomeReq":"112K","first_seen":"2026-05-30","last_seen":"2026-06-04","available_listing":false,"expired":true,"expired_since":"2026-06-05"},"korte-leidsedwarsstraat-203-3c":{"id":"korte-leidsedwarsstraat-203-3c","href":"https://hausing.com/for-rent/korte-leidsedwarsstraat-203-3c","address":"Korte Leidsedwarsstraat","neighborhood":"Centrum","bedrooms":"Studio","bathrooms":"1","size":"55 sq.m.","price":"€2300","available":"Immediately","studentsAllowed":"yes","incomeReq":"","first_seen":"2026-06-02","last_seen":"2026-06-15","available_listing":false,"expired":true,"expired_since":"2026-06-15"},"nassaukade-3bk0d":{"id":"nassaukade-3bk0d","href":"https://hausing.com/for-rent/nassaukade-3bk0d","address":"Nassaukade","neighborhood":"Oud-West","bedrooms":"2","bathrooms":"1","size":"73 sq.m.","price":"€3325","available":"Immediately","studentsAllowed":"yes","incomeReq":"135K","first_seen":"2026-06-03","last_seen":"2026-06-11","available_listing":false,"expired":true,"expired_since":"2026-06-11"},"hondiusstraat-2":{"id":"hondiusstraat-2","href":"https://hausing.com/for-rent/hondiusstraat-2","address":"Hondiusstraat 1-2","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"58 sq.m.","price":"€2475","available":"Immediately","studentsAllowed":"yes","incomeReq":"104K","first_seen":"2026-06-04","last_seen":"2026-06-12","available_listing":false,"expired":true,"expired_since":"2026-06-12"},"amstelveenseweg-vxz8w":{"id":"amstelveenseweg-vxz8w","href":"https://hausing.com/for-rent/amstelveenseweg-vxz8w","address":"Amstelveenseweg 89-3","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"69 sq.m.","price":"€2750","available":"Immediately","studentsAllowed":"yes","incomeReq":"115K","first_seen":"2026-06-04","last_seen":"2026-06-15","available_listing":false,"expired":true,"expired_since":"2026-06-15"},"hondiusstraat":{"id":"hondiusstraat","href":"https://hausing.com/for-rent/hondiusstraat","address":"Hondiusstraat","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"60 sq.m.","price":"€2525","available":"Immediately","studentsAllowed":"yes","incomeReq":"104K","first_seen":"2026-06-04","last_seen":"2026-06-11","available_listing":false,"expired":true,"expired_since":"2026-06-11"},"johan-jongkindstraat-nvcc1":{"id":"johan-jongkindstraat-nvcc1","href":"https://hausing.com/for-rent/johan-jongkindstraat-nvcc1","address":"Johan Jongkindstraat","neighborhood":"Zeeburgereiland","bedrooms":"2","bathrooms":"1","size":"102 sq.m.","price":"€2400","available":"Immediately","studentsAllowed":"yes","incomeReq":"100K","first_seen":"2026-06-05","last_seen":"2026-06-12","available_listing":false,"expired":true,"expired_since":"2026-06-12"},"libau-eiland":{"id":"libau-eiland","href":"https://hausing.com/for-rent/libau-eiland","address":"Libau-Eiland","neighborhood":"Houthavens","bedrooms":"2","bathrooms":"1","size":"91 sq.m.","price":"€3500","available":"06/07/2026","studentsAllowed":"no","incomeReq":"120K","first_seen":"2026-06-05","last_seen":"2026-06-20","available_listing":true,"expired":false},"rustenburgerstraat-7":{"id":"rustenburgerstraat-7","href":"https://hausing.com/for-rent/rustenburgerstraat-7","address":"Rustenburgerstraat","neighborhood":"De Pijp","bedrooms":"2","bathrooms":"1","size":"90 sq.m.","price":"€3000","available":"01/07/2026","studentsAllowed":"no","incomeReq":"125K","first_seen":"2026-06-05","last_seen":"2026-06-20","available_listing":true,"expired":false},"van-walbeeckstraat-vyx83":{"id":"van-walbeeckstraat-vyx83","href":"https://hausing.com/for-rent/van-walbeeckstraat-vyx83","address":"Van Walbeeckstraat","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"54 sq.m.","price":"€2600","available":"Immediately","studentsAllowed":"yes","incomeReq":"110K","first_seen":"2026-06-08","last_seen":"2026-06-15","available_listing":false,"expired":true,"expired_since":"2026-06-16"},"kanaalstraat-3":{"id":"kanaalstraat-3","href":"https://hausing.com/for-rent/kanaalstraat-3","address":"Kanaalstraat","neighborhood":"Helmersbuurt","bedrooms":"2","bathrooms":"1","size":"49 sq.m.","price":"€2675","available":"Immediately","studentsAllowed":"yes","incomeReq":"110K","first_seen":"2026-06-08","last_seen":"2026-06-18","available_listing":false,"expired":true,"expired_since":"2026-06-19"},"driedistelstraat":{"id":"driedistelstraat","href":"https://hausing.com/for-rent/driedistelstraat","address":"Driedistelstraat","neighborhood":"Noord","bedrooms":"2","bathrooms":"1","size":"74 sq.m.","price":"€2750","available":"01/07/2026","studentsAllowed":"yes","incomeReq":"115K","first_seen":"2026-06-08","last_seen":"2026-06-20","available_listing":true,"expired":false},"singel-4":{"id":"singel-4","href":"https://hausing.com/for-rent/singel-4","address":"Singel","neighborhood":"Grachtengordel","bedrooms":"6","bathrooms":"3","size":"251 sq.m.","price":"€6950","available":"Immediately","studentsAllowed":"unknown","incomeReq":"","first_seen":"2026-06-10","last_seen":"2026-06-20","available_listing":true,"expired":false},"lange-niezel-lv32i":{"id":"lange-niezel-lv32i","href":"https://hausing.com/for-rent/lange-niezel-lv32i","address":"Lange Niezel","neighborhood":"Centrum","bedrooms":"1","bathrooms":"1","size":"72 sq.m.","price":"€3150","available":"Immediately","studentsAllowed":"yes","incomeReq":"130K","first_seen":"2026-06-10","last_seen":"2026-06-20","available_listing":true,"expired":false},"sint-willibrordusstraat":{"id":"sint-willibrordusstraat","href":"https://hausing.com/for-rent/sint-willibrordusstraat","address":"Sint Willibrordusstraat","neighborhood":"De Pijp","bedrooms":"2","bathrooms":"1","size":"47 sq.m.","price":"€2725","available":"Immediately","studentsAllowed":"yes","incomeReq":"110K","first_seen":"2026-06-10","last_seen":"2026-06-20","available_listing":true,"expired":false},"lincolnweg":{"id":"lincolnweg","href":"https://hausing.com/for-rent/lincolnweg","address":"Lincolnweg","neighborhood":"Noord","bedrooms":"2","bathrooms":"1","size":"72 sq.m.","price":"€2500","available":"20/06/2026","studentsAllowed":"yes","incomeReq":"","first_seen":"2026-06-10","last_seen":"2026-06-20","available_listing":true,"expired":false},"minervalaan":{"id":"minervalaan","href":"https://hausing.com/for-rent/minervalaan","address":"Minervalaan","neighborhood":"Zuid","bedrooms":"2","bathrooms":"2","size":"114 sq.m.","price":"€4750","available":"01/08/2026","studentsAllowed":"no","incomeReq":"","first_seen":"2026-06-11","last_seen":"2026-06-20","available_listing":true,"expired":false},"plantage-doklaan":{"id":"plantage-doklaan","href":"https://hausing.com/for-rent/plantage-doklaan","address":"Plantage Doklaan","neighborhood":"Plantage","bedrooms":"2","bathrooms":"1","size":"90 sq.m.","price":"€3100","available":"Immediately","studentsAllowed":"yes","incomeReq":"130K","first_seen":"2026-06-11","last_seen":"2026-06-17","available_listing":false,"expired":true,"expired_since":"2026-06-18"},"van-spilbergenstraat-8":{"id":"van-spilbergenstraat-8","href":"https://hausing.com/for-rent/van-spilbergenstraat-8","address":"Van Spilbergenstraat","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"60 sq.m.","price":"€2800","available":"Immediately","studentsAllowed":"yes","incomeReq":"115K","first_seen":"2026-06-12","last_seen":"2026-06-20","available_listing":true,"expired":false},"rustenburgerstraat-8":{"id":"rustenburgerstraat-8","href":"https://hausing.com/for-rent/rustenburgerstraat-8","address":"Rustenburgerstraat","neighborhood":"De Pijp","bedrooms":"2","bathrooms":"1","size":"62 sq.m.","price":"€2800","available":"Immediately","studentsAllowed":"yes","incomeReq":"115K","first_seen":"2026-06-12","last_seen":"2026-06-20","available_listing":true,"expired":false},"archimedesplantsoen-scghe":{"id":"archimedesplantsoen-scghe","href":"https://hausing.com/for-rent/archimedesplantsoen-scghe","address":"Archimedesplantsoen","neighborhood":"Oost","bedrooms":"2","bathrooms":"1","size":"45 sq.m.","price":"€2625","available":"Immediately","studentsAllowed":"yes","incomeReq":"135K","first_seen":"2026-06-12","last_seen":"2026-06-18","available_listing":false,"expired":true,"expired_since":"2026-06-19"},"oudezijds-voorburgwal":{"id":"oudezijds-voorburgwal","href":"https://hausing.com/for-rent/oudezijds-voorburgwal","address":"Oudezijds Voorburgwal","neighborhood":"Centrum","bedrooms":"2","bathrooms":"2","size":"94 sq.m.","price":"€3200","available":"Immediately","studentsAllowed":"yes","incomeReq":"135K","first_seen":"2026-06-12","last_seen":"2026-06-20","available_listing":true,"expired":false},"ceintuurbaan-vhqhw":{"id":"ceintuurbaan-vhqhw","href":"https://hausing.com/for-rent/ceintuurbaan-vhqhw","address":"Ceintuurbaan","neighborhood":"De Pijp","bedrooms":"2","bathrooms":"1","size":"90 sq.m.","price":"€3775","available":"Immediately","studentsAllowed":"yes","incomeReq":"155K","first_seen":"2026-06-12","last_seen":"2026-06-20","available_listing":true,"expired":false},"admiralengracht-3uez7":{"id":"admiralengracht-3uez7","href":"https://hausing.com/for-rent/admiralengracht-3uez7","address":"Admiralengracht","neighborhood":"De Baarsjes","bedrooms":"2","bathrooms":"1","size":"50 sq.m.","price":"€2575","available":"Immediately","studentsAllowed":"yes","incomeReq":"110K","first_seen":"2026-06-17","last_seen":"2026-06-20","available_listing":true,"expired":false},"rooseveltlaan":{"id":"rooseveltlaan","href":"https://hausing.com/for-rent/rooseveltlaan","address":"Rooseveltlaan","neighborhood":"Rivierenbuurt","bedrooms":"3","bathrooms":"2","size":"110 sq.m.","price":"€2950","available":"01/07/2026","studentsAllowed":"no","incomeReq":"123K","first_seen":"2026-06-17","last_seen":"2026-06-20","available_listing":true,"expired":false},"cornelis-zillesenlaan":{"id":"cornelis-zillesenlaan","href":"https://hausing.com/for-rent/cornelis-zillesenlaan","address":"Cornelis Zillesenlaan","neighborhood":"IJburg","bedrooms":"2","bathrooms":"1","size":"76 sq.m.","price":"€2500","available":"01/07/2026","studentsAllowed":"yes","incomeReq":"","first_seen":"2026-06-18","last_seen":"2026-06-20","available_listing":true,"expired":false},"cornelis-zillesenlaan-2":{"id":"cornelis-zillesenlaan-2","href":"https://hausing.com/for-rent/cornelis-zillesenlaan-2","address":"Cornelis Zillesenlaan","neighborhood":"IJburg","bedrooms":"3","bathrooms":"1","size":"106 sq.m.","price":"€3000","available":"01/07/2026","studentsAllowed":"yes","incomeReq":"","first_seen":"2026-06-18","last_seen":"2026-06-20","available_listing":true,"expired":false},"cornelis-zillesenlaan1":{"id":"cornelis-zillesenlaan1","href":"https://hausing.com/for-rent/cornelis-zillesenlaan1","address":"Cornelis Zillesenlaan","neighborhood":"IJburg","bedrooms":"3","bathrooms":"1","size":"130 sq.m.","price":"€3500","available":"01/07/2026","studentsAllowed":"yes","incomeReq":"","first_seen":"2026-06-18","last_seen":"2026-06-20","available_listing":true,"expired":false},"prinsengracht-f9cxu":{"id":"prinsengracht-f9cxu","href":"https://hausing.com/for-rent/prinsengracht-f9cxu","address":"Prinsengracht","neighborhood":"Grachtengordel","bedrooms":"2","bathrooms":"1","size":"156 sq.m.","price":"€3500","available":"01/07/2026","studentsAllowed":"yes","incomeReq":"145K","first_seen":"2026-06-19","last_seen":"2026-06-20","available_listing":true,"expired":false},"gerard-doustraat-4":{"id":"gerard-doustraat-4","href":"https://hausing.com/for-rent/gerard-doustraat-4","address":"Gerard Doustraat","neighborhood":"De Pijp","bedrooms":"3","bathrooms":"1","size":"60 sq.m.","price":"€2850","available":"Immediately","studentsAllowed":"yes","incomeReq":"120K","first_seen":"2026-06-19","last_seen":"2026-06-20","available_listing":true,"expired":false},"eerste-constantijn-huygenstraat":{"id":"eerste-constantijn-huygenstraat","href":"https://hausing.com/for-rent/eerste-constantijn-huygenstraat","address":"Eerste Constantijn Huygenstraat","neighborhood":"Oud-West","bedrooms":"2","bathrooms":"1","size":"59 sq.m.","price":"€2800","available":"01/07/2026","studentsAllowed":"no","incomeReq":"118K","first_seen":"2026-06-19","last_seen":"2026-06-20","available_listing":true,"expired":false},"van-spilbergenstraat-9":{"id":"van-spilbergenstraat-9","href":"https://hausing.com/for-rent/van-spilbergenstraat-9","address":"Van Spilbergenstraat","neighborhood":"De Baarsjes","bedrooms":"3","bathrooms":"1","size":"49 sq.m.","price":"€2950","available":"Immediately","studentsAllowed":"yes","incomeReq":"120K","first_seen":"2026-06-20","last_seen":"2026-06-20","available_listing":true,"expired":false},"delistraat":{"id":"delistraat","href":"https://hausing.com/for-rent/delistraat","address":"Delistraat","neighborhood":"Oost","bedrooms":"2","bathrooms":"1","size":"56 sq.m.","price":"€3325","available":"Immediately","studentsAllowed":"yes","incomeReq":"140K","first_seen":"2026-06-20","last_seen":"2026-06-20","available_listing":true,"expired":false},"torresstraat-2":{"id":"torresstraat-2","href":"https://hausing.com/for-rent/torresstraat-2","address":"Torresstraat","neighborhood":"West","bedrooms":"2","bathrooms":"1","size":"72 sq.m.","price":"€2800","available":"Immediately","studentsAllowed":"yes","incomeReq":"130K","first_seen":"2026-06-20","last_seen":"2026-06-20","available_listing":true,"expired":false}}}</script>
+<!-- PARARIUS — input flow stub
+     This data block is populated by the Pararius scheduled task (currently disabled).
+     The input flow: Gmail MCP reads daily Pararius notification email → extracts listing
+     URLs → navigates + scrapes each → writes back here. Enable the task once Gmail is
+     connected and the email flow is verified. -->
+<script id="pararius-data" type="application/json">
+{"last_checked":null,"checks":[],"listings":{}}
+</script>
+<!-- ════════════════════════════════════════════ -->
+
+<!-- Page header -->
+<div class="ph">
+  <div class="ph-left">
+    <h1>Amsterdam<br>Housing Tracker</h1>
+    <p>
+      <a href="https://studentexperience.com/studios?los=longstay&locationId=4" target="_blank">Student Experience NDSM</a>
+      &nbsp;·&nbsp;
+      <a href="https://hausing.com/for-rent" target="_blank">Hausing Amsterdam</a>
+      &nbsp;·&nbsp;
+      <a href="https://www.pararius.com/apartments/amsterdam" target="_blank">Pararius Amsterdam</a>
+      &nbsp;·&nbsp; Daily 10:00 AM
+    </p>
+  </div>
+</div>
+
+<!-- GLOBAL COMBINED ANALYTICS
+     These four cards sum across all housing providers.
+     When a new provider is added, include its computeStats() result in the
+     providers[] array inside drawGlobal() — the totals expand automatically. -->
+<div class="global-stats-wrap">
+  <div class="global-stats">
+    <div class="stat s-new">    <div class="stat-n" id="g-new">—</div><div class="stat-l">New Today</div></div>
+    <div class="stat s-pending"><div class="stat-n" id="g-pnd">—</div><div class="stat-l">Active</div></div>
+    <div class="stat s-applied"><div class="stat-n" id="g-app">—</div><div class="stat-l">Sent</div></div>
+    <div class="stat s-expired"><div class="stat-n" id="g-exp">—</div><div class="stat-l">Expired</div></div>
+  </div>
+</div>
+
+<hr class="rule-accent">
+
+<!-- ══ STUDENT EXPERIENCE NDSM ══ -->
+<div class="sec" style="margin-top:var(--sp-6)">
+  <div class="sec-head">
+    <span class="sec-title">Student Experience NDSM</span>
+    <span class="sec-lc" id="se-lc">—</span>
+  </div>
+  <div class="alert" id="se-alert"></div>
+  <div class="filters" id="se-fbar">
+    <button class="fb on" data-src="se" data-f="all">All</button>
+    <button class="fb" data-src="se" data-f="new">New</button>
+    <button class="fb" data-src="se" data-f="available">Available</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Studio</th><th>Size</th><th>Stay</th><th>Furnished</th><th id="se-price-th" class="th-sort" onclick="togglePriceSort('se')">Price / mo<span class="sort-arrow" id="se-sort-arrow">↕</span></th><th>Expiry</th><th id="se-status-th" class="th-sort" onclick="toggleStatusSort('se')">Status<span class="sort-arrow" id="se-status-arrow">↕</span></th></tr></thead>
+      <tbody id="se-body"></tbody>
+    </table>
+  </div>
+  <div class="hist-tog" onclick="tog('se-hb','se-ha')">
+    <span id="se-ha">Check history ▾</span>
+  </div>
+  <div class="hist-body" id="se-hb"></div>
+</div>
+
+<hr class="rule">
+<hr class="rule-accent">
+
+<!-- ══ HAUSING AMSTERDAM ══ -->
+<div class="sec" style="margin-top:var(--sp-6)">
+  <div class="sec-head">
+    <span class="sec-title">Hausing Amsterdam</span>
+    <span class="sec-lc" id="h-lc">—</span>
+  </div>
+  <div class="alert" id="h-alert"></div>
+  <div class="filters">
+    <button class="fb on" data-src="h" data-f="all">All</button>
+    <button class="fb" data-src="h" data-f="available">Available</button>
+    <button class="fb" data-src="h" data-f="new">New</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Address</th><th>Neighborhood</th><th>Beds</th><th>Size</th><th id="h-price-th" class="th-sort" onclick="togglePriceSort('h')">Price / mo<span class="sort-arrow" id="h-sort-arrow">↕</span></th><th>Available</th><th>Students</th><th>Income req.</th><th>First seen</th><th id="h-status-th" class="th-sort" onclick="toggleStatusSort('h')">Status<span class="sort-arrow" id="h-status-arrow">↕</span></th></tr></thead>
+      <tbody id="h-body"></tbody>
+    </table>
+  </div>
+  <div class="hist-tog" onclick="tog('h-hb','h-ha')">
+    <span id="h-ha">Check history ▾</span>
+  </div>
+  <div class="hist-body" id="h-hb"></div>
+</div>
+
+<hr class="rule">
+<hr class="rule-accent">
+
+<!-- ══ PARARIUS AMSTERDAM ══ -->
+<div class="sec" style="margin-top:var(--sp-6)">
+  <div class="sec-head">
+    <span class="sec-title">Pararius Amsterdam</span>
+    <span class="sec-lc" id="p-lc">not connected</span>
+  </div>
+  <div class="alert" id="p-alert"></div>
+  <div class="filters">
+    <button class="fb on" data-src="p" data-f="all">All</button>
+    <button class="fb" data-src="p" data-f="new">New</button>
+    <button class="fb" data-src="p" data-f="available">Available</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Address</th><th>Neighborhood</th><th>Beds</th><th>Size</th><th id="p-price-th" class="th-sort" onclick="togglePriceSort('p')">Price / mo<span class="sort-arrow" id="p-sort-arrow">↕</span></th><th>Available</th><th>First seen</th><th id="p-status-th" class="th-sort" onclick="toggleStatusSort('p')">Status<span class="sort-arrow" id="p-status-arrow">↕</span></th></tr></thead>
+      <tbody id="p-body"></tbody>
+    </table>
+  </div>
+  <div class="hist-tog" onclick="tog('p-hb','p-ha')">
+    <span id="p-ha">Check history ▾</span>
+  </div>
+  <div class="hist-body" id="p-hb"></div>
+</div>
+
+<script>
+const seD = JSON.parse(document.getElementById('se-data').textContent);
+const hD  = JSON.parse(document.getElementById('hausing-data').textContent);
+const pD  = JSON.parse(document.getElementById('pararius-data').textContent);
+
+// ── DISABLED: Open listing + Google Maps simultaneously ───────────────────────
+// DO NOT re-enable this. It opens a Maps tab for every single listing link click.
+// Future intent: open ONE Maps tab when the dashboard loads (not per-link).
+// When reimplementing, trigger on DOMContentLoaded with a single Amsterdam-scoped
+// query, not tied to individual listing hrefs.
+//
+// function openWithMap(e, listingUrl, mapsQuery) {
+//   e.preventDefault();
+//   window.open(listingUrl, '_blank');
+//   window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(mapsQuery), '_blank');
+// }
+
+// ── Price sort state ───────────────────────────────────────
+const _sortPrice = { se: 'none', h: 'none', p: 'none' };
+
+function parsePrice(p) {
+  if (!p) return 0;
+  const m = String(p).replace(/[€\s*,.]/g, '').match(/\d+/);
+  return m ? parseInt(m[0]) : 0;
+}
+
+function togglePriceSort(src) {
+  // Clicking price sort clears status sort (mutually exclusive)
+  _sortStatus[src] = 'none';
+  const sArrow = document.getElementById(src + '-status-arrow');
+  const sTh    = document.getElementById(src + '-status-th');
+  if (sArrow) { sArrow.textContent = '↕'; sTh.className = 'th-sort'; }
+
+  _sortPrice[src] = _sortPrice[src] === 'asc' ? 'desc' : 'asc';
+  const th    = document.getElementById(src + '-price-th');
+  const arrow = document.getElementById(src + '-sort-arrow');
+  if (th) {
+    th.className = 'th-sort sort-' + _sortPrice[src];
+    arrow.textContent = _sortPrice[src] === 'asc' ? '↓' : '↑';
+  }
+  src === 'se' ? drawSE() : drawH();
+}
+
+// ── Status sort ───────────────────────────────────────────
+// Asc order: Starred(0) → Queued(1) → Referenced(2) → Sent(3) → Pass(4) → unset(5)
+const STATUS_ORDER = { 'starred': 0, 'queued': 1, 'referenced': 2, 'sent': 3, 'pass': 4, '': 5 };
+const _sortStatus = { se: 'asc', h: 'asc', p: 'asc' }; // always active, default ascending
+
+function toggleStatusSort(src) {
+  // Deactivate price sort when status is clicked
+  _sortPrice[src] = 'none';
+  const pArrow = document.getElementById(src + '-sort-arrow');
+  const pTh    = document.getElementById(src + '-price-th');
+  if (pArrow) { pArrow.textContent = '↕'; pTh.className = 'th-sort'; }
+
+  // Cycle asc → desc → asc only, never 'none'
+  _sortStatus[src] = _sortStatus[src] === 'asc' ? 'desc' : 'asc';
+  const th    = document.getElementById(src + '-status-th');
+  const arrow = document.getElementById(src + '-status-arrow');
+  if (th) {
+    th.className = 'th-sort sort-' + _sortStatus[src];
+    arrow.textContent = _sortStatus[src] === 'asc' ? '↓' : '↑';
+  }
+  src === 'se' ? drawSE() : drawH();
+}
+
+// ── Expired visibility rule ────────────────────────────────
+// A listing is hidden from the table (but still counted in stats) when:
+//   expired === true AND expired_since is 2 or more days ago.
+// expired_since is set by the scheduled task on the day it first marks
+// a listing as gone. Day 0 and Day 1 = visible as expired. Day 2+ = hidden.
+function daysSince(dateStr) {
+  if (!dateStr) return 0;
+  const d = new Date(dateStr + 'T12:00:00');
+  return Math.floor((new Date() - d) / 86400000);
+}
+function isHiddenExpired(item) {
+  return item.expired === true && daysSince(item.expired_since) >= 2;
+}
+
+// ── Status storage: in-memory primary, localStorage secondary ──────────
+// _ST is the single source of truth for the current session.
+// localStorage is loaded once at startup and flushed on every change.
+const _ST = { se: {}, h: {} };
+
+(function loadStatuses() {
+  // Migrate old status values to new names (runs once, harmless on subsequent loads)
+  const MIGRATE = { 'interested': 'starred', 'pending': 'queued', 'applied': 'sent', 'not-interested': 'pass' };
+  function migrateObj(obj) {
+    let changed = false;
+    Object.keys(obj).forEach(id => {
+      if (MIGRATE[obj[id]]) { obj[id] = MIGRATE[obj[id]]; changed = true; }
+    });
+    return changed;
+  }
+  try {
+    const se = localStorage.getItem('oa_se_st');
+    const h  = localStorage.getItem('oa_h_st');
+    if (se) _ST.se = JSON.parse(se);
+    if (h)  _ST.h  = JSON.parse(h);
+    // Apply migration and persist if anything changed
+    if (migrateObj(_ST.se)) localStorage.setItem('oa_se_st', JSON.stringify(_ST.se));
+    if (migrateObj(_ST.h))  localStorage.setItem('oa_h_st',  JSON.stringify(_ST.h));
+    // One-time migration v2: wipe all 'queued' → '' (blank/unassigned).
+    // Runs exactly once. After this, 'queued' is a deliberate user choice again.
+    if (!localStorage.getItem('oa_migration_v2')) {
+      ['se','h','p'].forEach(src => {
+        if (!_ST[src]) return;
+        Object.keys(_ST[src]).forEach(id => { if (_ST[src][id] === 'queued') _ST[src][id] = ''; });
+      });
+      localStorage.setItem('oa_se_st', JSON.stringify(_ST.se));
+      localStorage.setItem('oa_h_st',  JSON.stringify(_ST.h));
+      localStorage.setItem('oa_migration_v2', '1');
+    }
+  } catch(e) { /* localStorage unavailable — in-memory only */ }
+})();
+
+function saveStatuses() {
+  try {
+    localStorage.setItem('oa_se_st', JSON.stringify(_ST.se));
+    localStorage.setItem('oa_h_st',  JSON.stringify(_ST.h));
+  } catch(e) {}
+}
+
+// Called from inline onchange on each select.
+// Updates ONLY that select element — no table redraw.
+function setStatus(src, id, sel) {
+  const val = sel.value;
+  _ST[src][id] = val;
+  saveStatuses();
+  // Update class in place (styling)
+  sel.className = 'sel ' + val;
+  // Show a brief flash on the row
+  const row = sel.closest('tr');
+  if (row) {
+    row.style.transition = 'background 0.3s';
+    row.style.background = val === 'starred'  ? 'rgba(194,65,12,0.04)'
+                         : val === 'sent'     ? 'rgba(43,36,32,0.04)'
+                         : val === 'queued'   ? 'rgba(138,125,107,0.04)'
+                         : '';
+    setTimeout(() => { row.style.background = ''; }, 600);
+  }
+  // If a filter is active that would now hide this row, re-draw
+  const f = getF(src);
+  if (f !== 'all' && f !== 'new') {
+    src === 'se' ? drawSE() : drawH();
+  }
+}
+
+function getStatus(src, id) { return _ST[src]?.[id] ?? ''; }
+
+function fmtD(s){ if(!s)return'—'; const d=new Date(s.includes('T')?s:s+'T12:00:00'); return d.toLocaleDateString('en-NL',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtTS(s){ if(!s)return'—'; const d=new Date(s); const tz={timeZone:'Europe/Amsterdam'}; return d.toLocaleDateString('en-NL',{day:'2-digit',month:'short',...tz})+' '+d.toLocaleTimeString('en-NL',{hour:'2-digit',minute:'2-digit',...tz}); }
+function tog(bid,aid){ const b=document.getElementById(bid),a=document.getElementById(aid); b.classList.toggle('open'); a.textContent=b.classList.contains('open')?(a.textContent.replace('▾','▴')):(a.textContent.replace('▴','▾')); }
+function getF(src){ return document.querySelector(`.fb[data-src="${src}"].on`)?.dataset.f||'all'; }
+
+document.querySelectorAll('.fb').forEach(b=>b.addEventListener('click',()=>{
+  const s=b.dataset.src;
+  document.querySelectorAll(`.fb[data-src="${s}"]`).forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  s==='se'?drawSE():s==='h'?drawH():drawP();
+}));
+
+// ── SE ────────────────────────────────────────────
+function drawSE(){
+  const items=Object.values(seD.studios);
+  const lc=seD.checks?.at(-1);
+  const newS=new Set(lc?.new_ids||[]);
+
+  // ── 4 analytics ──────────────────────────────────
+  // 1. New: listings in the latest logged check's new_ids (same source as the New badge)
+  const cntNew  = items.filter(s=>newS.has(s.id)).length;
+  // 2. Sent: status = 'sent' (all time, any listing)
+  const cntApp  = items.filter(s=>getStatus('se',s.id)==='sent').length;
+  // 3. Pending: starred or queued AND currently available (SE is already student-only)
+  const cntPnd  = items.filter(s=>s.available && ['starred','queued'].includes(getStatus('se',s.id))).length;
+  // 4. Expired: cumulative count of listings ever marked expired:true (matches global)
+  const cntExp  = items.filter(s=>s.expired===true).length;
+
+  document.getElementById('se-lc').textContent=fmtTS(seD.last_checked);
+
+  if(cntNew){
+    const a=document.getElementById('se-alert');
+    a.classList.add('on');
+    a.innerHTML=`${cntNew} new studio${cntNew>1?'s':''} at Student Experience NDSM today<span class="alert-sep">·</span><span class="alert-dot"></span>${cntApp} applied`;
+  }
+
+  const prevS=new Set(seD.checks?.at(-2)?.studio_ids||[]), currS=new Set(lc?.studio_ids||[]);
+  const goneS=new Set([...prevS].filter(x=>!currS.has(x)));
+
+  const f=getF('se');
+  let list=items;
+  if(f==='available')    list=items.filter(s=>s.available);
+  else if(f==='new')     list=items.filter(s=>newS.has(s.id));
+
+  // Unassigned+new items always float to top; otherwise status asc is the default
+  function seStatusVal(s) {
+    const sv = getStatus('se', s.id);
+    if (sv === '' && newS.has(s.id)) return -1;
+    return STATUS_ORDER[sv] ?? 5;
+  }
+  if (_sortPrice.se !== 'none') {
+    list.sort((a,b)=>{ const d=parsePrice(a.price)-parsePrice(b.price); return _sortPrice.se==='asc'?d:-d; });
+  } else {
+    list.sort((a,b)=>{ const d=seStatusVal(a)-seStatusVal(b); return _sortStatus.se==='asc'?d:-d; });
+  }
+
+  const tb=document.getElementById('se-body');
+  // Remove rows that have been expired for 2+ days (stats still count them)
+  const visibleList = list.filter(s => !isHiddenExpired(s));
+  if(!visibleList.length){ tb.innerHTML=`<tr><td colspan="7"><div class="empty">No studios match this filter.</div></td></tr>`; return; }
+  tb.innerHTML=visibleList.map(s=>{
+    const iN=newS.has(s.id), iG=goneS.has(s.id)||s.expired, sv=getStatus('se',s.id);
+    return `<tr class="${iN?'r-new':''}${iG?' r-gone':''}">
+      <td class="col-name"><a href="${s.href}" target="_blank">${s.name}</a>${iN?'<span class="b b-new">New</span>':''}${iG?'<span class="b b-gone">Gone</span>':''}</td>
+      <td class="col-muted">${s.size||'—'}</td>
+      <td class="col-muted">${(s.stayType||'').replace(/ Not furnished| Furnished/g,'').trim()||'—'}</td>
+      <td class="col-muted">${s.furnished||'—'}</td>
+      <td class="col-price">${s.price||'—'}</td>
+      <td class="col-date">${s.expiry?fmtD(s.expiry):'—'}</td>
+      <td><select class="sel ${sv}" onchange="setStatus('se','${s.id}',this)">
+        <option value="" ${sv===''?'selected':''}>—</option>
+        <option value="starred" ${sv==='starred'?'selected':''}>Starred</option>
+        <option value="queued" ${sv==='queued'?'selected':''}>Queued</option>
+        <option value="referenced" ${sv==='referenced'?'selected':''}>Referenced</option>
+        <option value="sent" ${sv==='sent'?'selected':''}>Sent</option>
+        <option value="pass" ${sv==='pass'?'selected':''}>Pass</option>
+      </select></td></tr>`;
+  }).join('');
+
+  const hb=document.getElementById('se-hb');
+  hb.innerHTML=(seD.checks?.length?[...seD.checks].reverse():[]).map(c=>
+    `<div class="hist-row"><span class="hist-d">${fmtD(c.date)}</span><span class="hist-ct">${c.studio_ids?.length||0} available</span>${c.new_ids?.length?`<span class="hist-new">+${c.new_ids.length} new</span>`:''}${c.gone_ids?.length?`<span class="hist-gone">−${c.gone_ids.length} gone</span>`:''}</div>`
+  ).join('')||`<div class="empty" style="padding:12px">No history yet.</div>`;
+}
+
+// ── Hausing ────────────────────────────────────────
+function drawH(){
+  const items=Object.values(hD.listings);
+  const lc=hD.checks?.at(-1);
+  const newS=new Set(lc?.new_ids||[]);
+
+  // ── 4 analytics ──────────────────────────────────
+  // 1. New: listings in the latest logged check's new_ids (same source as the New badge)
+  const cntNew = items.filter(l=>newS.has(l.id)).length;
+  // 2. Sent: status = 'sent' (all time, all listings)
+  const cntApp = items.filter(l=>getStatus('h',l.id)==='sent').length;
+  // 3. Pending: starred or queued AND available AND studentsAllowed='yes'
+  const cntPnd = items.filter(l=>l.available_listing && l.studentsAllowed==='yes' && ['starred','queued'].includes(getStatus('h',l.id))).length;
+  // 4. Expired: cumulative count of listings ever marked expired:true (matches global)
+  const cntExp = items.filter(l=>l.expired===true).length;
+
+  document.getElementById('h-lc').textContent=fmtTS(hD.last_checked);
+
+  const nc=items.filter(l=>newS.has(l.id) && l.studentsAllowed==='yes').length;
+  if(nc){
+    const a=document.getElementById('h-alert');
+    a.classList.add('on');
+    a.innerHTML=`${nc} new student-friendly listing${nc>1?'s':''} on Hausing Amsterdam today<span class="alert-sep">·</span><span class="alert-dot"></span>${cntApp} applied`;
+  }
+
+  const prevS=new Set(hD.checks?.at(-2)?.listing_ids||[]), currS=new Set(lc?.listing_ids||[]);
+  const goneS=new Set([...prevS].filter(x=>!currS.has(x)));
+
+  const f=getF('h');
+
+  // The student-friendly and non-student groups are ALWAYS kept separate in code.
+  // Filtering and sorting happens independently within each group.
+  // The orange divider always marks the boundary between them.
+  function filterGroup(group) {
+    if(f==='available')    return group.filter(l=>l.available_listing);
+    if(f==='students-ok')  return group.filter(l=>l.available_listing); // non-student group hidden below
+    if(f==='new')          return group.filter(l=>newS.has(l.id));
+    return group; // 'all'
+  }
+
+  // Unassigned+new items always float to top within their group
+  function hStatusVal(l) {
+    const sv = getStatus('h', l.id);
+    if (sv === '' && newS.has(l.id)) return -1;
+    return STATUS_ORDER[sv] ?? 5;
+  }
+  const priceCmp  = (a,b) => { const d=parsePrice(a.price)-parsePrice(b.price); return _sortPrice.h==='asc'?d:-d; };
+  const statusCmp = (a,b) => { const d=hStatusVal(a)-hStatusVal(b); return _sortStatus.h==='asc'?d:-d; };
+  const cmp = _sortPrice.h !== 'none' ? priceCmp : statusCmp;
+
+  // Remove rows that have been expired for 2+ days (stats still count them)
+  const notHidden = items.filter(l => !isHiddenExpired(l));
+  let studentGroup = filterGroup(notHidden.filter(l=>l.studentsAllowed==='yes')).sort(cmp);
+  // Non-student group is hidden when filtering to students-ok view
+  let nonStudentGroup = f==='students-ok' ? [] : filterGroup(notHidden.filter(l=>l.studentsAllowed!=='yes')).sort(cmp);
+
+  const dividerIdx = studentGroup.length > 0 && nonStudentGroup.length > 0 ? studentGroup.length : -1;
+  const list = [...studentGroup, ...nonStudentGroup];
+
+  const tb=document.getElementById('h-body');
+  if(!list.length){ tb.innerHTML=`<tr><td colspan="10"><div class="empty">No listings match this filter.</div></td></tr>`; return; }
+
+  tb.innerHTML=list.map((l,i)=>{
+    const divider = i===dividerIdx
+      ? `<tr class="no-student-divider"><td colspan="10"><div></div></td></tr>`
+      : '';
+    const iN=newS.has(l.id), iG=goneS.has(l.id)||!l.available_listing||l.expired, sv=getStatus('h',l.id);
+    const sl=l.studentsAllowed==='yes'?'<span class="b b-yes">Yes</span>':l.studentsAllowed==='no'?'<span class="b b-no">No</span>':'<span class="b b-unk">?</span>';
+    return divider + `<tr class="${iN?'r-new':''}${iG?' r-gone':''}">
+      <td class="col-name"><a href="${l.href}" target="_blank">${l.address}</a>${iN?'<span class="b b-new">New</span>':''}${iG?'<span class="b b-gone">Gone</span>':''}</td>
+      <td class="col-muted">${l.neighborhood||'—'}</td>
+      <td class="col-muted">${l.bedrooms||'—'}</td>
+      <td class="col-muted">${l.size||'—'}</td>
+      <td class="col-price">${l.price||'—'}</td>
+      <td class="col-date">${l.available||'—'}</td>
+      <td>${sl}</td>
+      <td class="col-muted">${l.incomeReq||'—'}</td>
+      <td class="col-date">${fmtD(l.first_seen)}</td>
+      <td><select class="sel ${sv}" onchange="setStatus('h','${l.id}',this)">
+        <option value="" ${sv===''?'selected':''}>—</option>
+        <option value="starred" ${sv==='starred'?'selected':''}>Starred</option>
+        <option value="queued" ${sv==='queued'?'selected':''}>Queued</option>
+        <option value="referenced" ${sv==='referenced'?'selected':''}>Referenced</option>
+        <option value="sent" ${sv==='sent'?'selected':''}>Sent</option>
+        <option value="pass" ${sv==='pass'?'selected':''}>Pass</option>
+      </select></td></tr>`;
+  }).join('');
+
+  const hb=document.getElementById('h-hb');
+  hb.innerHTML=(hD.checks?.length?[...hD.checks].reverse():[]).map(c=>
+    `<div class="hist-row"><span class="hist-d">${fmtD(c.date)}</span><span class="hist-ct">${c.listing_ids?.length||0} available</span>${c.new_ids?.length?`<span class="hist-new">+${c.new_ids.length} new</span>`:''}${c.gone_ids?.length?`<span class="hist-gone">−${c.gone_ids.length} gone</span>`:''}</div>`
+  ).join('')||`<div class="empty" style="padding:12px">No history yet.</div>`;
+}
+
+// ── Pararius ──────────────────────────────────────────────
+// INPUT FLOW STUB — connect here when email flow is ready:
+//   1. Gmail MCP reads daily Pararius notification email
+//   2. Extract listing URLs from email body
+//   3. Navigate to each URL (may require login to pararius.com)
+//   4. Scrape: address, neighborhood, size, bedrooms, price, available date
+//   5. Diff against pD.listings{} — compute NEW_IDS and GONE_IDS
+//   6. Set expired_since on newly gone listings (same rule as hausing/se)
+//   7. Write updated pararius-data JSON back to tracker.html via Edit tool
+//   8. Set pD.last_checked = NOW
+function drawP() {
+  const items = Object.values(pD.listings);
+  const lc    = pD.checks?.at(-1);
+  const newS  = new Set(lc?.new_ids || []);
+
+  document.getElementById('p-lc').textContent = pD.last_checked ? fmtTS(pD.last_checked) : 'not connected';
+
+  if (items.filter(l=>newS.has(l.id)).length > 0) {
+    const cntNew = items.filter(l=>newS.has(l.id)).length;
+    const cntApp = items.filter(l=>getStatus('p',l.id)==='sent').length;
+    const a = document.getElementById('p-alert');
+    a.classList.add('on');
+    a.innerHTML = `${cntNew} new listing${cntNew>1?'s':''} on Pararius Amsterdam today<span class="alert-sep">·</span><span class="alert-dot"></span>${cntApp} applied`;
+  }
+
+  const prevS = new Set(pD.checks?.at(-2)?.listing_ids||[]);
+  const currS = new Set(lc?.listing_ids||[]);
+  const goneS = new Set([...prevS].filter(x=>!currS.has(x)));
+
+  const f = getF('p');
+  const notHidden = items.filter(l => !isHiddenExpired(l));
+  let list = notHidden;
+  if (f==='available') list = notHidden.filter(l=>l.available_listing);
+  else if (f==='new')  list = notHidden.filter(l=>newS.has(l.id));
+
+  function pStatusVal(l) {
+    const sv = getStatus('p', l.id);
+    if (sv === '' && newS.has(l.id)) return -1;
+    return STATUS_ORDER[sv] ?? 5;
+  }
+  const priceCmp  = (a,b) => { const d=parsePrice(a.price)-parsePrice(b.price); return _sortPrice.p==='asc'?d:-d; };
+  const statusCmp = (a,b) => { const d=pStatusVal(a)-pStatusVal(b); return _sortStatus.p==='asc'?d:-d; };
+  list.sort(_sortPrice.p !== 'none' ? priceCmp : statusCmp);
+
+  const tb = document.getElementById('p-body');
+  if (!list.length) {
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty">${items.length===0?'Not connected... Waiting for Pararius input flow.':'No listings match this filter.'}</div></td></tr>`;
+  } else {
+    tb.innerHTML = list.map(l => {
+      const iN=newS.has(l.id), iG=goneS.has(l.id)||!l.available_listing||l.expired, sv=getStatus('p',l.id);
+      return `<tr class="${iN?'r-new':''}${iG?' r-gone':''}">
+        <td class="col-name"><a href="${l.href}" target="_blank">${l.address}</a>${iN?'<span class="b b-new">New</span>':''}${iG?'<span class="b b-gone">Gone</span>':''}</td>
+        <td class="col-muted">${l.neighborhood||'—'}</td>
+        <td class="col-muted">${l.bedrooms||'—'}</td>
+        <td class="col-muted">${l.size||'—'}</td>
+        <td class="col-price">${l.price||'—'}</td>
+        <td class="col-date">${l.available||'—'}</td>
+        <td class="col-date">${fmtD(l.first_seen)}</td>
+        <td><select class="sel ${sv}" onchange="setStatus('p','${l.id}',this)">
+          <option value="" ${sv===''?'selected':''}>—</option>
+          <option value="starred" ${sv==='starred'?'selected':''}>Starred</option>
+          <option value="queued" ${sv==='queued'?'selected':''}>Queued</option>
+          <option value="referenced" ${sv==='referenced'?'selected':''}>Referenced</option>
+          <option value="sent" ${sv==='sent'?'selected':''}>Sent</option>
+          <option value="pass" ${sv==='pass'?'selected':''}>Pass</option>
+        </select></td></tr>`;
+    }).join('');
+  }
+
+  const hb = document.getElementById('p-hb');
+  hb.innerHTML = (pD.checks?.length ? [...pD.checks].reverse() : []).map(c=>
+    `<div class="hist-row"><span class="hist-d">${fmtD(c.date)}</span><span class="hist-ct">${c.listing_ids?.length||0} available</span>${c.new_ids?.length?`<span class="hist-new">+${c.new_ids.length} new</span>`:''}${c.gone_ids?.length?`<span class="hist-gone">-${c.gone_ids.length} gone</span>`:''}</div>`
+  ).join('') || `<div class="empty" style="padding:12px">No history yet.</div>`;
+}
+
+// ── Global combined analytics ─────────────────────────────
+// Returns {new, app, pnd, exp} for a given provider's data and source key.
+// To add a new provider: call computeStats(srcKey, dataObj) and include it
+// in the providers[] array inside drawGlobal().
+function computeStats(src, data, isHausing) {
+  const newS = new Set(data.checks?.at(-1)?.new_ids || []);
+  const allItems = isHausing ? Object.values(data.listings) : Object.values(data.studios);
+  return {
+    new: allItems.filter(x => newS.has(x.id)).length,
+    app: allItems.filter(x => getStatus(src, x.id) === 'sent').length,
+    // Active = active listings with status 'starred' or 'queued'.
+    // NOTE: if statuses are renamed or new ones added in the future,
+    // update the array below so the Active counter stays accurate.
+    pnd: allItems.filter(x =>
+      (isHausing ? (x.available_listing && x.studentsAllowed === 'yes') : x.available) &&
+      ['starred', 'queued'].includes(getStatus(src, x.id))
+    ).length,
+    exp: allItems.filter(x => x.expired === true).length // all ever-expired listings, cumulative
+  };
+}
+
+function drawGlobal() {
+  // COMBINED ANALYTICS — add new providers here.
+  // Each entry: computeStats(sourceKey, dataObject, isHausing)
+  // The reduce sums all providers into one total automatically.
+  const providers = [
+    computeStats('se', seD, false),
+    computeStats('h',  hD,  true),
+    computeStats('p',  pD,  true),   // Pararius — active once input flow is connected
+    // Future provider: computeStats('provider4', p4D, true/false),
+  ];
+  const t = providers.reduce((a,s) => ({new:a.new+s.new, app:a.app+s.app, pnd:a.pnd+s.pnd, exp:a.exp+s.exp}), {new:0,app:0,pnd:0,exp:0});
+  document.getElementById('g-new').textContent = t.new;
+  document.getElementById('g-app').textContent = t.app;
+  document.getElementById('g-pnd').textContent = t.pnd;
+  document.getElementById('g-exp').textContent = t.exp;
+}
+
+// Initialise status sort arrows to show active ascending state on load
+['se','h','p'].forEach(src => {
+  const th    = document.getElementById(src + '-status-th');
+  const arrow = document.getElementById(src + '-status-arrow');
+  if (th && arrow) { th.className = 'th-sort sort-asc'; arrow.textContent = '↓'; }
+});
+
+/* V2: boot handled by enhancement script below (intro-synced reveal) */
+</script>
+
+<script>
+/* ════════ V2 INTRO + MOTION ORCHESTRATION ════════ */
+(function(){
+  var drawn={se:false,h:false,p:false}, statsDone=false, gTargets={};
+  var settled=false, pending=[], pendingStats=false;
+  /* ── Animation timing (edit these; dependent timers derive automatically) ── */
+  var T={
+    heroHold:2000,   // hero sits before auto-scrolling into the dashboard
+    scroll:1900,     // hero -> dashboard auto-scroll duration
+    cueScroll:1200,  // down-chevron click scroll
+    backScroll:1000, // up-chevron (back to hero) scroll
+    skeleton:300     // skeleton shimmer before each table renders in
+  };
+  T.safety   = T.scroll + 1500;               // force-render sections never scrolled into view
+  T.fallback = T.heroHold + T.scroll + 2600;  // hard backup reveal if the hold timer fails
+  if('scrollRestoration' in history) history.scrollRestoration='manual';
+
+  function skelRow(c){var t='';for(var i=0;i<c;i++)t+='<td><div class="v2-skel"></div></td>';return '<tr>'+t+'</tr>';}
+  function injectSkeletons(){
+    var cols={'se-body':7,'h-body':10,'p-body':8};
+    function vis(items){return items.filter(function(x){return !isHiddenExpired(x);}).length;}
+    var rows={
+      'se-body':Math.min(16,Math.max(2,vis(Object.values(seD.studios)))),
+      'h-body': Math.min(16,Math.max(2,vis(Object.values(hD.listings)))),
+      'p-body': Math.min(16,Math.max(1,vis(Object.values(pD.listings))))
+    };
+    Object.keys(cols).forEach(function(id){var tb=document.getElementById(id);if(!tb)return;
+      var n=rows[id],r='';for(var i=0;i<n;i++)r+=skelRow(cols[id]);tb.innerHTML=r;});
+  }
+  function drawSection(key){
+    if(drawn[key])return;drawn[key]=true;
+    if(key==='se')drawSE();else if(key==='h')drawH();else drawP();
+    var el=document.getElementById(key+'-body');if(!el)return;
+    var rows=el.querySelectorAll('tr'), n=rows.length||1;
+    // fewer listings reveal slower (more savoured), many reveal fast (Hausing benchmark)
+    var step=Math.max(0.04, Math.min(0.25, 0.5/n));
+    for(var i=0;i<rows.length;i++){ rows[i].style.animationDelay=(i*step).toFixed(3)+'s'; }
+    el.classList.add('v2-stagger');
+  }
+  function computeGlobals(){
+    drawGlobal();
+    ['g-new','g-pnd','g-app','g-exp'].forEach(function(id){var el=document.getElementById(id);if(!el)return;
+      gTargets[id]=parseInt(el.textContent,10)||0;el.textContent='0';});
+  }
+  function countUpGlobals(){
+    if(statsDone)return;statsDone=true;
+    [['g-new',850],['g-pnd',1000],['g-app',1000],['g-exp',1150]].forEach(function(p){
+      var el=document.getElementById(p[0]);if(!el)return;var target=gTargets[p[0]]||0;
+      if(target<=0){el.textContent=target;return;}
+      var t0=performance.now();
+      (function step(t){var kk=Math.min(1,(t-t0)/p[1]);
+        el.textContent=Math.round(target*(1-Math.pow(1-kk,3)));
+        if(kk<1)requestAnimationFrame(step);})(performance.now());
+    });
+  }
+  function initFilterSliders(){
+    document.querySelectorAll('.filters').forEach(function(bar){
+      var slide=bar.querySelector('.fb-slide');
+      if(!slide){slide=document.createElement('div');slide.className='fb-slide';bar.insertBefore(slide,bar.firstChild);}
+      function move(){var on=bar.querySelector('.fb.on');if(!on){slide.style.opacity=0;return;}
+        slide.style.opacity=1;slide.style.width=on.offsetWidth+'px';
+        slide.style.transform='translate('+on.offsetLeft+'px,'+on.offsetTop+'px)';}
+      bar.querySelectorAll('.fb').forEach(function(b){b.addEventListener('click',function(){setTimeout(move,0);});});
+      bar._move=move;requestAnimationFrame(move);
+    });
+  }
+  window.addEventListener('resize',function(){document.querySelectorAll('.filters').forEach(function(b){if(b._move)b._move();});});
+
+  function setupObservers(){
+    var statsWrap=document.querySelector('.global-stats-wrap');
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(!en.isIntersecting)return;var el=en.target;io.unobserve(el);
+        if(el===statsWrap){ if(settled){countUpGlobals();}else{pendingStats=true;} return; }
+        var key=el.getAttribute('data-draw');
+        if(settled){ setTimeout(function(){drawSection(key);},T.skeleton); }
+        else if(pending.indexOf(key)<0){ pending.push(key); }
+      });
+    },{threshold:0.12,rootMargin:'0px 0px -8% 0px'});
+    if(statsWrap)io.observe(statsWrap);
+    [['se-body','se'],['h-body','h'],['p-body','p']].forEach(function(p){
+      var tb=document.getElementById(p[0]);if(tb){tb.setAttribute('data-draw',p[1]);io.observe(tb);}});
+  }
+
+  function easeInOut(k){return k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;}
+  function animateScrollTo(toY,dur,onstep,done){
+    var fromY=window.pageYOffset,t0=performance.now(),fin=false;
+    function finish(){ if(fin)return; fin=true; window.scrollTo(0,toY); if(done)done(); }
+    (function step(t){ if(fin)return;
+      var k=Math.min(1,(t-t0)/dur);var e=easeInOut(k);
+      window.scrollTo(0,fromY+(toY-fromY)*e);
+      if(onstep)onstep(k);
+      if(k<1)requestAnimationFrame(step); else finish();
+    })(performance.now());
+    // Guarantee completion even if rAF is paused (hidden/background tab) or laggy,
+    // so `animating` always clears and the dashboard can never get stuck unscrollable.
+    setTimeout(finish, dur+250);
+  }
+
+  var hero=document.getElementById('v2-intro');
+  var word=hero&&hero.querySelector('.v2-wordmark');
+  function heroH(){return (hero&&hero.offsetHeight)||window.innerHeight;}
+  function onHeroScroll(){
+    if(!hero)return;
+    var p=Math.min(1,Math.max(0,window.pageYOffset/heroH()));
+    hero.style.opacity=String(1-p*0.85);
+    hero.classList.toggle('v2-hide-cue',p>0.04);
+    if(word&&p>0.001){word.style.animation='none';word.style.transform='translateY('+(8+p*66)+'%)';}
+  }
+  var animating=false, inHero=true, autoHold;
+
+  // Dock = hero removed from the scroll flow so the dashboard bottoms out at 0 (no overshoot).
+  function dock(){ if(hero)hero.style.display='none'; void document.body.offsetHeight; window.scrollTo(0,0); captureOff(); document.body.classList.add('v2-docked'); }
+  function undock(){ document.body.classList.remove('v2-docked'); if(hero)hero.style.display=''; window.scrollTo(0,heroH()); captureOn(); }
+
+  function settle(){
+    if(settled)return;settled=true;
+    if(pendingStats)setTimeout(countUpGlobals,200);
+    pending.forEach(function(key,i){setTimeout(function(){drawSection(key);},T.skeleton+i*140);});
+  }
+  function goDown(){
+    if(animating||!inHero)return;
+    clearTimeout(autoHold); animating=true;
+    animateScrollTo(heroH(),T.scroll,function(k){if(k>0.55)document.body.classList.add('v2-docked');},function(){animating=false;inHero=false;dock();settle();});
+    setTimeout(function(){ // safety: render anything still pending/off-screen
+      settle();countUpGlobals();['se','h','p'].forEach(function(key){drawSection(key);});
+      document.querySelectorAll('.filters').forEach(function(b){if(b._move)b._move();});
+    },T.safety);
+  }
+  function goUp(){
+    if(animating||inHero)return;
+    animating=true; undock();
+    animateScrollTo(0,T.scroll,null,function(){animating=false;inHero=true;});
+  }
+  // onWheel/onTouchMove preventDefault ALL scroll to capture the hero->dashboard
+  // descent. They're attached only in the hero/transition and removed once docked
+  // (captureOff) — otherwise they'd block the dashboard's native scrolling.
+  // Return to the hero is via the up-arrow button (goUp) only.
+  var touchY=null;
+  function onWheel(e){ e.preventDefault(); if(!animating && e.deltaY>0) goDown(); }
+  function onTouchStart(e){ touchY=e.touches[0].clientY; }
+  function onTouchMove(e){ e.preventDefault(); if(!animating && touchY!==null && (touchY-e.touches[0].clientY)>6) goDown(); }
+  function onKey(e){ if(!animating && ['ArrowDown','PageDown',' ','Spacebar'].indexOf(e.key)>-1){ e.preventDefault(); goDown(); } }
+  function captureOn(){
+    window.addEventListener('wheel',onWheel,{passive:false});
+    window.addEventListener('touchstart',onTouchStart,{passive:true});
+    window.addEventListener('touchmove',onTouchMove,{passive:false});
+    window.addEventListener('keydown',onKey);
+  }
+  function captureOff(){
+    window.removeEventListener('wheel',onWheel);
+    window.removeEventListener('touchstart',onTouchStart);
+    window.removeEventListener('touchmove',onTouchMove);
+    window.removeEventListener('keydown',onKey);
+  }
+
+  // Boot: pre-warm everything so the transition's first frame is jank-free
+  window.scrollTo(0,0);
+  injectSkeletons();
+  computeGlobals();
+  initFilterSliders();
+  setupObservers();
+  // Permanent passive listeners — never removed. Safari leaves the scroll area stale
+  // after a display:none layout change UNLESS a wheel/scroll listener exists; these
+  // keep its scroll path alive in the docked dashboard. Also drives the hero fade.
+  window.addEventListener('scroll',onHeroScroll,{passive:true});
+  window.addEventListener('wheel',function(){},{passive:true});
+  captureOn();
+  onHeroScroll();
+  var backBtn=document.getElementById('v2-back');
+  if(backBtn)backBtn.addEventListener('click',goUp);
+  autoHold=setTimeout(goDown,T.heroHold);
+  setTimeout(function(){if(inHero)goDown();},T.fallback); // hard fallback
+})();
+</script>
+</body>
+</html>

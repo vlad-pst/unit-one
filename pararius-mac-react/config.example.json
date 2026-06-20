@@ -1,0 +1,13 @@
+{
+  "email": "",
+  "app_password_keychain": "pararius-react",
+  "mailbox": "AUTO",
+  "subject_contains": "Just found for you",
+  "from_contains": "pararius",
+  "reaction_keywords": ["one click", "react", "reageer", "reageren"],
+  "exclude_keywords": ["view this property", "view listing", "bekijk", "unsubscribe", "afmelden"],
+  "lookback_hours": 12,
+  "poll_seconds": 30,
+  "dry_run": true,
+  "max_open_per_cycle": 10
+}

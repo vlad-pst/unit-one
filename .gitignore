@@ -1,0 +1,11 @@
+.env
+.env.*
+.DS_Store
+node_modules/
+__pycache__/
+*.pyc
+test-results/
+playwright-report/
+
+# local secrets / personal config
+pararius-mac-react/config.json
