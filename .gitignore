@@ -9,3 +9,7 @@ playwright-report/
 
 # local secrets / personal config
 pararius-mac-react/config.json
+
+# Mac deploy signal markers (written by the agent / deploy script, machine-local)
+.deploy-request
+.deploy-done
