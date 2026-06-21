@@ -4,6 +4,8 @@ Guidance for AI agents and contributors editing this repo.
 
 Note: the daily scraping agent is configured separately (its own scheduled task) and does not read this file. This is for whoever is changing the code.
 
+**Start here:** read `ARCHITECTURE.md` first — it has the cross-component context and decisions this repo's files can't show.
+
 ## Safety
 
 Destructive actions (deleting, overwriting, or moving files over existing ones) require my explicit approval each time. A prior approval is never standing consent. When in doubt, archive instead of delete, and ask first.
@@ -22,6 +24,15 @@ This repo is public. Assume everything you commit is world-readable and permanen
 - Open `tracker.html` directly in a browser. No build step.
 - `node --test tests/*.test.js` runs logic, data-contract, pipeline, and animation tests with zero install.
 - `npm run test:e2e` runs the Playwright browser tests (needs `npm install` and `npx playwright install chromium`).
+
+## Git
+
+- `main` is production: pushing to `main` auto-deploys to https://unit001.vercel.app — a push is a live release.
+- Code changes go on a `feature/…` branch → PR → squash-merge to `main`. Direct-to-`main` only for trivial fixes.
+- Conventional Commits (`feat:`, `fix:`, `chore(data):` …), imperative, explain why.
+- Only the automated daily data job commits as `unit-one-agent`. Every other commit — including one you make on Vlad's behalf — uses Vlad's own git identity. Never author as `unit-one-agent`.
+- Never commit: `.deploy-request` / `.deploy-done`, `pararius-mac-react/config.json`, `.env`, or any secret (all gitignored).
+- Public repo: ask before committing and before pushing; one approval is not standing.
 
 ## Rules
 
