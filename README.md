@@ -2,9 +2,9 @@
 
 # Unit001
 
-#### Hunt Amsterdam rentals from a single page.
+#### Command center for Amsterdam rentals. You only need to find one.
 
-A scheduled agent scrapes the listing sites every day and writes the results straight into the dashboard. You triage what lands through a simple status pipeline: starred, queued, referenced, sent, pass.
+A scheduled agent scrapes the listing sites every day and writes the results straight into the dashboard. Process what lands through a simple status pipeline: starred, queued, referenced, sent, pass.
 
 ### &nbsp;[**→ Open the live dashboard**](https://unit001.vercel.app)&nbsp;
 
