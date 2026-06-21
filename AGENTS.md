@@ -6,6 +6,8 @@ Note: the daily scraping agent is configured separately (its own scheduled task)
 
 **Start here:** read `ARCHITECTURE.md` first — it has the cross-component context and decisions this repo's files can't show.
 
+**Roadmap:** planned/phased work lives in Linear (project: Unit001) — must read it before starting feature work. Dev agents only; the daily scraper doesn't use Linear.
+
 ## Safety
 
 Destructive actions (deleting, overwriting, or moving files over existing ones) require my explicit approval each time. A prior approval is never standing consent. When in doubt, archive instead of delete, and ask first.
@@ -33,6 +35,14 @@ This repo is public. Assume everything you commit is world-readable and permanen
 - Only the automated daily data job commits as `unit-one-agent`. Every other commit — including one you make on Vlad's behalf — uses Vlad's own git identity. Never author as `unit-one-agent`.
 - Never commit: `.deploy-request` / `.deploy-done`, `pararius-mac-react/config.json`, `.env`, or any secret (all gitignored).
 - Public repo: ask before committing and before pushing; one approval is not standing.
+
+## Environment
+
+You may be in a sandbox (Cowork) or local (Claude Code). The file tools show `/Users/vladi` paths in BOTH, so paths are not proof — check in the shell:
+`[ -d /Users/vladi ] && echo local || echo sandbox`
+
+- **sandbox** (Linux, `/sessions/…`, no git creds, egress = github.com only): `git push` and `npm install` fail — don't attempt. Do NOT run git at all here, not even read-only: a single `git status` can leave a `.git/index.lock` that blocks the next Mac commit. Inspect with the file tools only. Commits/pushes belong to the Mac deploy script + Vlad; installs to local Claude Code.
+- **local** (Mac, `/Users/vladi`): full git/npm/Playwright. Normal workflow.
 
 ## Rules
 

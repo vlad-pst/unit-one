@@ -4,7 +4,6 @@ const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => { try { localStorage.clear(); } catch (e) {} });
   await page.goto('/tracker.html');
   // tables are drawn after the intro motion settles
   await expect(page.locator('#h-body tr')).not.toHaveCount(0);
