@@ -34,7 +34,7 @@ ok=1
 if [ -n "$(git status --porcelain -- tracker.html)" ]; then
   git add tracker.html
   git -c user.name="unit-one-agent" -c user.email="agent@unit-one.local" \
-      commit -m "chore(data): daily refresh $(date +%F)" \
+      commit -m "chore(data): daily refresh $(date +%d-%m-%Y) $(date +%H:%M)" \
     && echo "$(date '+%F %T') committed tracker.html"
 fi
 
