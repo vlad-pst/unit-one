@@ -1,4 +1,12 @@
 #!/bin/bash
+# DISABLED on the Mac since 2026-11-15: the project has been dormant since
+# 2026-07-11, so the launchd timer (every 120 s) was stopped. The agent was
+# unloaded and its plist renamed to
+# ~/Library/LaunchAgents/com.unit-one.push.plist.disabled
+# To re-enable:
+#   mv ~/Library/LaunchAgents/com.unit-one.push.plist.disabled ~/Library/LaunchAgents/com.unit-one.push.plist
+#   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.unit-one.push.plist
+#
 # Mac-side deploy. Commits tracker.html and pushes to GitHub (-> Vercel redeploy).
 #
 # Why this exists: the scheduled agent runs in a sandbox VM with no git
